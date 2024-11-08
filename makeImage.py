@@ -1,5 +1,6 @@
 import numpy as np
 import galsim 
+import galsim.roman
 from astropy.table import Table
 import argparse
 import pandas as pd
@@ -7,6 +8,7 @@ from astropy.modeling.physical_models import BlackBody
 from astropy import units as u
 import astropy.io as aio
 from astropy import constants as const
+import warnings
 
 fNuRef = 3.631e-23*(u.W/u.m**2)/u.Hz#W/m^2/Hz
 
@@ -27,6 +29,7 @@ if __name__ == '__main__':
     args=parser.parse_args()
 
     #Read RA,Dec from star catalog
+
     try:
         assert('.fits' in args.starCat)
     except:
@@ -38,6 +41,7 @@ if __name__ == '__main__':
     
     readImage = galsim.fits.read(file_name = args.wcsFileName, hdu = 1)
     mybounds = readImage.bounds
+
     mywcs = readImage.wcs
 
     scaNum = int(args.SCA)
@@ -55,7 +59,12 @@ if __name__ == '__main__':
 
     outImage = galsim.Image(wcs = mywcs, bounds = mybounds)
 
-    psf = galsim.Moffat(beta=3, fwhm = 2.85)
+    
+    roman_bandpasses = galsim.roman.getBandpasses()
+
+    # The following PSF will be used if not using random positions for stars. Otherwise thePSF will be slightly different depending on the SCA position of the object's image. Will modify this later.
+
+    psf = galsim.roman.getPSF(scaNum,'F184',wcs=mywcs,wavelength=roman_bandpasses['F184'])
     source = galsim.Convolve([psf, galsim.DeltaFunction(flux=1.)])
 
     for i in range(cat.nobjects):
@@ -70,6 +79,9 @@ if __name__ == '__main__':
             x = np.random.random_sample()*mybounds.getXMax()
             y = np.random.random_sample()*mybounds.getYMax()
             imageCenter = galsim.PositionD(x = x, y= y)
+            pos_SCA = galsim.PositionD(x=x-(mybounds.getXMax()/2.),y=y-(mybounds.getYMax()/2.))
+            psf = galsim.roman.getPSF(scaNum,'F184',SCA_pos=pos_SCA,wcs=mywcs,wavelength=roman_bandpasses['F184'])
+            source = galsim.Convolve([psf, galsim.DeltaFunction(flux=1.)])
         
         if args.blackBody:
             #bb = BlackBody(temperature = 5000*u.K)
