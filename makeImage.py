@@ -78,6 +78,7 @@ if __name__ == '__main__':
         else:
             x = np.random.random_sample()*mybounds.getXMax()
             y = np.random.random_sample()*mybounds.getYMax()
+            mag = cat.get(i, 'H')
             imageCenter = galsim.PositionD(x = x, y= y)
             pos_SCA = galsim.PositionD(x=x-(mybounds.getXMax()/2.),y=y-(mybounds.getYMax()/2.))
             psf = galsim.roman.getPSF(scaNum,'F184',SCA_pos=pos_SCA,wcs=mywcs,wavelength=roman_bandpasses['F184'])
@@ -100,7 +101,7 @@ if __name__ == '__main__':
 
         geomAreaCM = geomArea.to(u.cm**2).value
 
-        psf.drawImage(outImage, method = 'phot', n_photons = nPhot, center = imageCenter, add_to_image = True)
+        source.drawImage(outImage, method = 'phot', n_photons = nPhot, center = imageCenter, add_to_image = True)
         print("Image Drawn!")
 
     outImage.write('outImage.fits')
