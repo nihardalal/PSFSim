@@ -6,5 +6,5 @@ Repository for simulations for testing point spread function measurements for th
 Run with 
 
 ```ruby
-python makeImage.py /users/PCON0003/cond0007/PSF-TEST-FILES/Roman_WAS_simple_model_H158_13814_14.fits besancon_fixed.fits 12 -b
+python makeImage.py /users/PCON0003/cond0007/PSF-TEST-FILES/Roman_WAS_simple_model_H158_13814_14.fits besancon_fixed.fits scaNum -b
 ```
