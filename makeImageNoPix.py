@@ -64,8 +64,9 @@ if __name__ == '__main__':
 
     # The following PSF will be used if not using random positions for stars. Otherwise thePSF will be slightly different depending on the SCA position of the object's image. Will modify this later.
 
-    psf = galsim.roman.getPSF(scaNum,'F184',wcs=mywcs,wavelength=roman_bandpasses['F184'])
-    source = galsim.Convolve([psf, galsim.DeltaFunction(flux=1.)])
+    #psf = galsim.roman.getPSF(scaNum,'F184',wcs=mywcs,wavelength=roman_bandpasses['F184'])
+    #source = galsim.Convolve([psf, galsim.DeltaFunction(flux=1.)])
+    big_fft_params = galsim.GSParams(maximum_fft_size=12300)
 
     for i in range(cat.nobjects):
         if args.blackBody:
@@ -94,7 +95,7 @@ if __name__ == '__main__':
                 continue #Skip item if out of bounds
             pos_SCA = galsim.PositionD(x=imageCenter.x-(mybounds.getXMax()/2.),y=imageCenter.y-(mybounds.getYMax()/2.))
             psf = galsim.roman.getPSF(scaNum, 'F184', SCA_pos = pos_SCA, wcs = mywcs, wavelength = roman_bandpasses['F184'])
-            source = galsim.Convolve([psf,galsim.DeltaFunction(flux = nPhot)])
+            source = galsim.Convolve([psf,galsim.DeltaFunction(flux = nPhot)], gsparams=big_fft_params)
         else:
             x = np.random.random_sample()*mybounds.getXMax()
             y = np.random.random_sample()*mybounds.getYMax()
