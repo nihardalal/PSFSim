@@ -9,6 +9,7 @@ from astropy import units as u
 import astropy.io as aio
 from astropy import constants as const
 import warnings
+import time
 
 fNuRef = 3.631e-23*(u.W/u.m**2)/u.Hz#W/m^2/Hz
 
@@ -95,7 +96,8 @@ if __name__ == '__main__':
                 continue #Skip item if out of bounds
             pos_SCA = galsim.PositionD(x=imageCenter.x-(mybounds.getXMax()/2.),y=imageCenter.y-(mybounds.getYMax()/2.))
             psf = galsim.roman.getPSF(scaNum, 'F184', SCA_pos = pos_SCA, wcs = mywcs, wavelength = roman_bandpasses['F184'])
-            source = galsim.Convolve([psf,galsim.DeltaFunction(flux = nPhot)], gsparams=big_fft_params)
+            #source = galsim.Convolve([psf,galsim.DeltaFunction(flux = nPhot)], gsparams=big_fft_params)
+            source = psf*nPhot
         else:
             x = np.random.random_sample()*mybounds.getXMax()
             y = np.random.random_sample()*mybounds.getYMax()
@@ -103,15 +105,16 @@ if __name__ == '__main__':
             imageCenter = galsim.PositionD(x = x, y= y)
             pos_SCA = galsim.PositionD(x=x-(mybounds.getXMax()/2.),y=y-(mybounds.getYMax()/2.))
             psf = galsim.roman.getPSF(scaNum,'F184',SCA_pos=pos_SCA,wcs=mywcs,wavelength=roman_bandpasses['F184'])
-            source = galsim.Convolve([psf, galsim.DeltaFunction(flux=nPhot)])
+            #source = galsim.Convolve([psf, galsim.DeltaFunction(flux=nPhot)])
+            source = psf*nPhot
 
         geomAreaCM = geomArea.to(u.cm**2).value
 
         source.drawImage(outImage, method = 'no_pixel', center = imageCenter, add_to_image = True)
         print("Image Drawn!")
 
-    outImage.write('outImage.fits')
-    print("Image written to outImage.fits")
+    outImage.write('outImageNoPix.fits')
+    print("Image written to outImageNoPix.fits")
 
 
 
