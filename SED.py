@@ -11,12 +11,13 @@ def find_sed(num, lumclass):
     sedFileName = 'uk'+specType+str(subType)+lum+'.dat'
     sedFileName2 = 'uk'+specType+str(subType+1)+lum+'.dat'
     if not interp:
+        print("Loading from ", sedFileName)
         return load_sed(sedFileName)
     else:
         return interp_sed(sedFileName, sedFileName2)
     
 def load_sed(sedFileName):
-    path = './data/SEDtemplates'
+    path = './data/SEDtemplates/'
     path_to_file_name = path+sedFileName
     if os.path.exists(path_to_file_name):
         wav = np.loadtxt(path_to_file_name, skiprows=3, usecols = 0)
