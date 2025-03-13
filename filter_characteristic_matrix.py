@@ -2,7 +2,11 @@ import numpy as np
 from numpy import newaxis as na
 
 def filter_characteristic_matrix(n1,t1,n2,t2,n3,t3,ll,ux,uy):
+
 # returns characteristic matrix of the interference filter for (vacuum) wavelength ll and angle of incidence given by sin_theta = (ux**2 + uy**2)**0.5
+
+# Note that this function returns a pair of 2x2 matrices which are respectively the characteristic matrices for the TE and TM modes of the incident wave
+
 
     u = np.sqrt((ux**2)+(uy**2))
     print(ux,uy,u)
