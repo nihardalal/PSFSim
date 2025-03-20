@@ -102,8 +102,8 @@ def filter_detector(object):
 
 
         
-    def Transmission(self,ll,ux,uy):
-    # Returns the (complex) ratio of the transmitted and incident amplitudes. Note that these amplitudes are those of the component of the E-field parallel to the detector in case of the TE mode and the component of the H-field parallel to the detector in the case of the TM mode.
+    def Transmission(self,ll,ux,uy, A_TE, A_TM):
+    # Returns the transmitted amplitudes in terms of the incident amplitudes in the TE and TM polarisation modes. Note that these amplitudes are those of the component of the E-field parallel to the detector in case of the TE mode and the component of the H-field parallel to the detector in the case of the TM mode.
 
         # Characteristic matrices for the TE and TM modes
         M_TE, M_TM = self.characteristic_matrix(ll,ux,uy)
@@ -127,6 +127,12 @@ def filter_detector(object):
 
         Transmission_TE = 2*cos_theta/((cos_theta*(M_TE[0,0]+((kz/k0/self.muHgCdTe)*M_TE[0,1])))+(M_TE[1,0]+((kz/k0/self.muHgCdTe)*M_TE[2,2])))
         Transmission_TM = 2*cos_theta/((cos_theta*(M_TM[0,0]+((kz/k0/self.eHgCdTe)*M_TM[0,1])))+(M_TM[1,0]+((kz/k0/self.eHgCdTe)*M_TM[2,2])))
+
+        T_TE = Transmission_TE*A_TE
+        T_TM = Transmission_TM*A_TM
+
+        
+
 
         return (Transmission_TE,Transmission_TM)
         
@@ -247,4 +253,5 @@ def filter_detector(object):
         
         return(n)
 
+    
 
