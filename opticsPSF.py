@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn import linear_model
+from astropy.io import fits
 
 #Helper function that computes SCAnum and SCApos from xout yout here
 def fromPosToSCA(x,y):
@@ -11,69 +12,49 @@ def fromSCAToPos(SCAnum, SCApos):
     return 
 
 class GeometricOptics:
-    def __init__(self, xout,yout, wavelength = 0.48):
+    def __init__(self, xout,yout, wavelength = 0.48, ulen = 2048):
 
         self.xout = xout
         self.yout = yout
         self.posOut = np.array([self.xout,self.yout])
         self.wavelength = wavelength
 
+
         self.scaNum, self.scaPos = fromPosToSCA(self.xout, self.yout)
 
-        #Jacobian polynomial fit tolerance
-        self.tolerance = 1e-4
+        #Set up u,v array for computations of Zernicke Polynomials
+        self.ulen = ulen
+        self.umin = 0
+        self.umax = 1
+        self.uArray = np.meshgrid(np.arange(self.umin, self.umax, self.ulen), np.arange(self.umin, self.umax, self.ulen))
 
-        #Read in data file from stpsf-data
-        self.dataFile = 'stpsf-data/WFI/wim_zernikes_cycle9.csv'
-        self.dataframe = pd.read_csv(self.dataFile, sep=',', header=0)
-        
-        self.wavmask = np.where(self.dataframe['wavelength']==self.wavelength)
-        self.localAngleXArray = np.array(self.dataframe['axis_local_angle_x'])[self.wavmask]
-        self.localAngleYArray = np.array(self.dataframe['axis_local_angle_y'])[self.wavmask]
-        self.globalXArray = np.array(self.dataframe['global_x'])[self.wavmask]
-        self.globalYArray = np.array(self.dataframe['global_y'])[self.wavmask]
+        #Load in polynomial fits to Jacobian
+        jacobian_fit_file_name = './data/jacobian_fits.npy'
+        self.jacobian_fits = np.load(jacobian_fit_file_name)
+        self.wavindex = np.where(self.jacobian_fits['wavelength'] == self.wavelength)
+        self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
+        self.newpolyorder = self.jacobian_fits['exponents'][self.wavindex]
 
-        #Fit polynomial function to data - ideally only want to do this once, so will probably move this outside and save the polynomial fit as a numpy file. 
-        angleInput = np.dstack(self.localAngleXArray, self.localAngleYArray)
-        poly = PolynomialFeatures(degree=4)
-        angleInput_ = poly.fit_transform(angleInput[0])
-        modelX = linear_model.LinearRegression()
-        modelY = linear_model.LinearRegression()
-        modelX.fit(angleInput_, self.globalXArray)
-        modelY.fit(angleInput_, self.globalYArray)
+        #Compute Distortion Matrix and dterminants
+        self.distortionMatrix = self.computeDistortionMatrix()
+        self.determinant = self.computeDeterminant()
+        self.determinant*=180/np.pi
 
-        rx = modelX.score(angleInput_, self.globalXArray)
-        ry = modelY.score(angleInput_, self.globalYArray)
-        print("rx,ry =", rx, ry)
-        if 1-rx>self.tolerance or 1-ry>self.tolerance:
-            raise Exception("Not able to find a good model fit, please try again with higher polynomial order")
-        
-        coefX = modelX.coef_
-        coefY = modelY.coef_
-        xpowers = poly.powers_[:,0]
-        ypowers = poly.powers_[:,1]
-        newpowersx = np.clip(xpowers-1,0,None)
-        newpowersy = np.clip(ypowers-1,0,None)
-
-        self.newpolyorder = np.empty((2,2, 15, 2), dtype = object)
-        self.newpolyorder[0][0] = np.stack((newpowersx,ypowers), axis = 1)
-        self.newpolyorder[0][1] = np.stack((xpowers,newpowersy), axis = 1)
-        self.newpolyorder[1][0] = np.stack((newpowersx,ypowers), axis = 1)
-        self.newpolyorder[1][1] = np.stack((xpowers,newpowersy), axis = 1)
-
-        self.jacobian = np.empty((2,2,15), dtype = object)
-        self.jacobian[0][0] = xpowers*coefX
-        self.jacobian[0][1] = ypowers*coefX
-        self.jacobian[1][0] = xpowers*coefY
-        self.jacobian[1][1] = ypowers*coefY
-
+        self.pupilMask = self.loadPupilMask()
 
     #Compute distortion matrix here!
-    def distortionMatrix(self):
-        return np.sum(self.jacobian*np.prod(np.power(np.array(self.posOut), self.newpolyorder), axis = 3), axis = 2)
+    def computeDistortionMatrix(self):
+        return np.sum(self.coeff*np.prod(np.power(np.array(self.posOut), self.newpolyorder), axis = 3), axis = 2)
     
-    def pupilMask(self):
-        return 
+    def computeDeterminant(self):
+        return self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
+    
+    def loadPupilMask(self):
+        dirName = './stpsf-data/WFI/pupils'
+        pupilMaskString = 'SCA{}_full_mask.fits.gz'.format(self.scaNum)
+        file = fits.open(dirName+pupilMaskString)
+        mask = file[0].data
+        return mask
     
     def zernicke(self):
         return 
