@@ -3,7 +3,7 @@ from numpy import newaxis as na
 
 def filter_detector(object):
     
-    def __init__(self,n1,t1,n2,t2,n3,t3):
+    def __init__(self,n1,t1,n2,t2,n3,t3,sgn):
         self.n1 = n1
         self.n2 = n2
         self.n3 = n3
@@ -20,6 +20,8 @@ def filter_detector(object):
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3
+
+        self.sgn = sgn
 
 
     def characteristic_matrix(self,ll,ux,uy):
@@ -101,9 +103,50 @@ def filter_detector(object):
         return (M_TE_net, M_TM_net)
 
 
+    def local_to_FPA_rotation(self, ux, uy):
         
-    def Transmission(self,ll,ux,uy, A_TE, A_TM):
-    # Returns the transmitted amplitudes in terms of the incident amplitudes in the TE and TM polarisation modes. Note that these amplitudes are those of the component of the E-field parallel to the detector in case of the TE mode and the component of the H-field parallel to the detector in the case of the TM mode.
+        u = np.sqrt((ux**2)+(uy**2))
+        
+        if u == 0:
+            RT = np.identity(3)
+        else:
+            RT = np.array([[uy*self.sgn/u, ux/u, 0.],[-(ux*self.sgn/u), uy/u, 0.], [0., 0., self.sgn]])
+
+        return RT
+
+
+    def polarisation_mode_decomposition(self, ux, uy, Ex, Ey, Ez):
+
+    # Function to decompose incident electric field (specified by components Ex, Ey, Ez along FPA axes) into TE and TM modes 
+
+    u = np.sqrt((ux**2)+(uy**2))
+
+    if u == 0:
+        A_TE = Ex
+        A_TM = -Ey
+
+    else:
+        ek1 = -(ux/u)*np.sqrt(1-(u**2))
+        ek2 = -(uy/u)*np.sqrt(1-(u**2))
+        ek3 = u*self.sgn
+
+        A_TE = Ex
+        A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
+
+    return (A_TE, A_TM)
+        
+    
+    
+
+
+        
+    def Transmitted_E(self,ll,ux,uy, A_TE, A_TM, xp, yp, zp):
+
+    # Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at position xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
+
+    # (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. 
+
+    # Note that these amplitudes are those of the component of the E-field parallel to the detector in case of the TE mode and the component of the H-field parallel to the detector in the case of the TM mode.
 
         # Characteristic matrices for the TE and TM modes
         M_TE, M_TM = self.characteristic_matrix(ll,ux,uy)
@@ -138,12 +181,26 @@ def filter_detector(object):
         E_local_y = (1j/(k0*eHgCdTe))*(1j*kz)*H_local_x
         E_local_z = (sin_theta/eHgCdTe)*H_local_x
 
+        E_local = np.array([E_local_x, E_local_y, E_local_z])
+
         # Resolve components of the E-field along local x and y axes into components along FPA x and y axes
 
+        local_to_FPA = self.local_to_FPA_rotation(ux,uy)
+
+        E_FPA_x = np.sum(local_to_FPA[0,:]*E_local[:])
+        E_FPA_y = np.sum(local_to_FPA[1,:]*E_local[:])
+        E_FPA_z = np.sum(local_to_FPA[2,:]*E_local[:])
+
+
+        phase = np.exp((1j*kz*self.sgn*zp)+(1j*k0*((ux*xp)+(uy*yp))))
+        Ex = E_FPA_x*phase
+        Ey = E_FPA_y*phase
+        Ez = E_FPA_z*phase
+
+        return (Ex, Ey, Ez)
 
 
 
-        return (Transmission_TE,Transmission_TM)
         
 
          
