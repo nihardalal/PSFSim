@@ -112,6 +112,7 @@ def filter_detector(object):
         
         # cosine of the angle of incidence
         cos_theta = np.sqrt(1-(ux**2)-(uy**2))
+        sin_theta = np.sqrt((ux**2)+(uy**2))
 
         # sine of the angle of incidence
         u = np.sqrt((ux**2)+(uy**2))
@@ -127,11 +128,19 @@ def filter_detector(object):
 
         Transmission_TE = 2*cos_theta/((cos_theta*(M_TE[0,0]+((kz/k0/self.muHgCdTe)*M_TE[0,1])))+(M_TE[1,0]+((kz/k0/self.muHgCdTe)*M_TE[2,2])))
         Transmission_TM = 2*cos_theta/((cos_theta*(M_TM[0,0]+((kz/k0/self.eHgCdTe)*M_TM[0,1])))+(M_TM[1,0]+((kz/k0/self.eHgCdTe)*M_TM[2,2])))
-
-        T_TE = Transmission_TE*A_TE
-        T_TM = Transmission_TM*A_TM
-
         
+
+        # Next we compute the amplitudes of the decaying electric field components along the local x, y and z axes. The electric field in the medium at a distance z inside the HgCdTe detector is E_local_(x/y/z)*exp(1j*kz*z+1j*k0*sin_theta*y)
+
+        E_local_x = A_TE*Transmission_TE
+        H_local_x = A_TM*Transmission_TM
+
+        E_local_y = (1j/(k0*eHgCdTe))*(1j*kz)*H_local_x
+        E_local_z = (sin_theta/eHgCdTe)*H_local_x
+
+        # Resolve components of the E-field along local x and y axes into components along FPA x and y axes
+
+
 
 
         return (Transmission_TE,Transmission_TM)
@@ -141,6 +150,7 @@ def filter_detector(object):
     def nHgCdTe(self,wavelength, force_old=False, force_short=False):
 
     # Computes the (complex) refractive index for HgCdTe for a given wavelength
+    # Can probably make this a helper function at a later stage 
 
         E = 1.23984198405504/wavelength # in eV
         T = 89.
