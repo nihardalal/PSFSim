@@ -7,23 +7,33 @@ from scipy.linalg import expm
 
 import zernike
 
-#Helper function that computes SCAnum and SCApos from xout yout here
-def fromPosToSCA(x,y):
-    return 
 #Helper function that computes xout, yout from SCAnum and SCApos here
-def fromSCAToPos(SCAnum, SCApos):
-    return 
+#Taken from pyimcom config.py https://github.com/kailicao/pyimcom/blob/main/config.py line 121
+def fromSCAToPos(SCAnum, SCAx, SCAy):
+    xfpa = np.array([-22.14, -22.29, -22.44, -66.42, -66.92, -67.42,-110.70,-111.48,-112.64,
+                     22.14,  22.29,  22.44,  66.42,  66.92,  67.42, 110.70, 111.48, 112.64])
+    yfpa = np.array([ 12.15, -37.03, -82.06,  20.90, -28.28, -73.06,  42.20,  -6.98, -51.06,
+                     12.15, -37.03, -82.06,  20.90, -28.28, -73.06,  42.20,  -6.98, -51.06])
+    scIndex = SCAnum-1
+    pixsize = 0.01
+    nside = 4088
+    sca_orient = np.array([-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1]).astype(np.int16)
+    if np.amin(SCAnum)<1 or np.amax(SCAnum)>18:
+         raise ValueError('Invalid SCA Number')
+    return (xfpa[scIndex]+ pixsize*(SCAx-(nside-1)/2.)*sca_orient[scIndex],
+            yfpa[scIndex]+ pixsize*(SCAy-(nside-1)/2.)*sca_orient[scIndex], )
 
 class GeometricOptics:
-    def __init__(self, xout,yout, wavelength = 0.48, ulen = 2048):
+    def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048):
 
-        self.xout = xout
-        self.yout = yout
-        self.posOut = np.array([self.xout,self.yout])
         self.wavelength = wavelength
 
+        self.scaNum = SCAnum
+        self.scaX = SCAx
+        self.scaY = SCAy
 
-        self.scaNum, self.scaPos = fromPosToSCA(self.xout, self.yout)
+        self.xout, self.yout = fromSCAToPos(self.scaNum, self.scaX, self.scaY)
+        self.posOut = np.array([self.xout,self.yout])
 
         #Set up u,v array for computations of Zernicke Polynomials
         self.ulen = ulen
