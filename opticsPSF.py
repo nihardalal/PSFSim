@@ -4,6 +4,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn import linear_model
 from astropy.io import fits
 from scipy.linalg import expm
+from scipy.interpolate import griddata
 
 import zernike
 
@@ -80,15 +81,22 @@ class GeometricOptics:
     def pathDiff(self):
         mydata = pd.read_csv('stpsf-data/WFI/wim_zernikes_cycle9.csv', sep=',', header=0)
         #Define mask to desired wavelength and correct X and Y (Need to modify to within bounds):
-        mask1 = np.where(mydata['wavelength']==self.wavelength and mydata['globalX'] == self.xout and mydata['globalY'] == self.yout)
+        mask1 = (mydata['wavelength']==self.wavelength) & (mydata['sca']==self.scaNum)
+        localx = mydata['local_x'][mask1]
+        localy = mydata['local_y'][mask1]
+        points = np.stack((localx,localy)).T
         pathDiff = 0
         for i in range(22):
             zIndex = i+1
             zString = ('Z{}'.format(zIndex))
-            zernCoeff = mydata[zString][mask1]
+            zernCoeffsToIntepolate = mydata[zString][mask1]
+            zernCoeff = griddata(points, zernCoeffsToIntepolate, (self.scaX,self.scaY), method = 'linear')
             nZern, mZern = zernike.noll_to_zernike(i)
             pathDiff += zernCoeff*zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar)
         return pathDiff
+
+
+
 
         
 
