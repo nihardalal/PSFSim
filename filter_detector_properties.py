@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import newaxis as na
 
-def filter_detector(object):
+class filter_detector(object):
     
     def __init__(self,n1,t1,n2,t2,n3,t3,sgn):
         self.n1 = n1
@@ -32,7 +32,7 @@ def filter_detector(object):
 
 
         u = np.sqrt((ux**2)+(uy**2))
-        print(ux,uy,u)
+        
         k0 = 2*np.pi/ll
         kz1 = k0*np.sqrt((self.n1**2)-(u**2))
         kz2 = k0*np.sqrt((self.n2**2)-(u**2))
@@ -53,15 +53,15 @@ def filter_detector(object):
         M_TE_1[0,0] = np.cos(kz1*self.t1)
         M_TE_1[1,1] = np.cos(kz1*self.t1)
         M_TE_1[0,1] = -(k0*self.mu1/kz1)*1j*np.sin(kz1*self.t1)
-        M_TE_1[1,0] = -(kz1/k0*self.mu1)*1j*np.sin(kz1*self.t1)
+        M_TE_1[1,0] = -(kz1/k0/self.mu1)*1j*np.sin(kz1*self.t1)
 
         # Characteristic matrix of layer 1 for TM wave 
         M_TM_1 = np.zeros((2,2),dtype=np.complex128)
-
+   
         M_TM_1[0,0] = np.cos(kz1*self.t1)
         M_TM_1[1,1] = np.cos(kz1*self.t1)
         M_TM_1[0,1] = -(k0*self.e1/kz1)*1j*np.sin(kz1*self.t1)
-        M_TM_1[1,0] = -(kz1/k0*self.e1)*1j*np.sin(kz1*self.t1)
+        M_TM_1[1,0] = -(kz1/k0/self.e1)*1j*np.sin(kz1*self.t1)
         
         # Characteristic matrix of layer 2 for the TE wave 
         M_TE_2 = np.zeros((2,2),dtype=np.complex128)
@@ -69,7 +69,7 @@ def filter_detector(object):
         M_TE_2[0,0] = np.cos(kz2*self.t2)
         M_TE_2[1,1] = np.cos(kz2*self.t2)
         M_TE_2[0,1] = -(k0*self.mu2/kz2)*1j*np.sin(kz2*self.t2)
-        M_TE_2[1,0] = -(kz2/k0*self.mu2)*1j*np.sin(kz2*self.t2)
+        M_TE_2[1,0] = -(kz2/k0/self.mu2)*1j*np.sin(kz2*self.t2)
 
         # Characteristic matrix of layer 2 for TM wave 
         M_TM_2 = np.zeros((2,2),dtype=np.complex128)
@@ -77,7 +77,7 @@ def filter_detector(object):
         M_TM_2[0,0] = np.cos(kz2*self.t2)
         M_TM_2[1,1] = np.cos(kz2*self.t2)
         M_TM_2[0,1] = -(k0*self.e2/kz2)*1j*np.sin(kz2*self.t2)
-        M_TM_2[1,0] = -(kz2/k0*self.e2)*1j*np.sin(kz2*self.t2)
+        M_TM_2[1,0] = -(kz2/k0/self.e2)*1j*np.sin(kz2*self.t2)
         
         # Characteristic matrix of layer 3 for the TE wave 
         M_TE_3 = np.zeros((2,2),dtype=np.complex128)
@@ -85,7 +85,7 @@ def filter_detector(object):
         M_TE_3[0,0] = np.cos(kz3*self.t3)
         M_TE_3[1,1] = np.cos(kz3*self.t3)
         M_TE_3[0,1] = -(k0*self.mu3/kz3)*1j*np.sin(kz3*self.t3)
-        M_TE_3[1,0] = -(kz3/k0*self.mu3)*1j*np.sin(kz3*self.t3)
+        M_TE_3[1,0] = -(kz3/k0/self.mu3)*1j*np.sin(kz3*self.t3)
 
         # Characteristic matrix of layer 3 for TM wave 
         M_TM_3 = np.zeros((2,2),dtype=np.complex128)
@@ -93,14 +93,14 @@ def filter_detector(object):
         M_TM_3[0,0] = np.cos(kz3*self.t3)
         M_TM_3[1,1] = np.cos(kz3*self.t3)
         M_TM_3[0,1] = -(k0*self.e3/kz3)*1j*np.sin(kz3*self.t3)
-        M_TM_3[1,0] = -(kz3/k0*self.e3)*1j*np.sin(kz3*self.t3)
+        M_TM_3[1,0] = -(kz3/k0/self.e3)*1j*np.sin(kz3*self.t3)
         
 
         
         M_TE_net = np.matmul(M_TE_1,np.matmul(M_TE_2,M_TE_3))
         M_TM_net = np.matmul(M_TM_1,np.matmul(M_TM_2,M_TM_3))
 
-        return (M_TE_net, M_TM_net)
+        return {'TE':M_TE_net, 'TM':M_TM_net}
 
 
     def local_to_FPA_rotation(self, ux, uy):
@@ -119,39 +119,46 @@ def filter_detector(object):
 
     # Function to decompose incident electric field (specified by components Ex, Ey, Ez along FPA axes) into TE and TM modes 
 
-    u = np.sqrt((ux**2)+(uy**2))
+        u = np.sqrt((ux**2)+(uy**2))
 
-    if u == 0:
-        A_TE = Ex
-        A_TM = -Ey
+        if u == 0:
+            A_TE = Ex
+            A_TM = -Ey
 
-    else:
-        ek1 = -(ux/u)*np.sqrt(1-(u**2))
-        ek2 = -(uy/u)*np.sqrt(1-(u**2))
-        ek3 = u*self.sgn
+        else:
+            ek1 = -(ux/u)*np.sqrt(1-(u**2))
+            ek2 = -(uy/u)*np.sqrt(1-(u**2))
+            ek3 = u*self.sgn
 
-        A_TE = Ex
-        A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
+            A_TE = Ex
+            A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
 
-    return (A_TE, A_TM)
+        return {'TE':A_TE, 'TM':A_TM}
         
     
     
 
 
         
-    def Transmitted_E(self,ll,ux,uy, A_TE, A_TM, xp, yp, zp):
 
-    # Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at position xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
+    def Transmission(self,ll, ux, uy, use_HgCdTe=True):
 
-    # (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. 
+        """
+        Returns Transmission coefficients of TE and TM modes coming with incident direction (ux, uy, sqrt(1-u^2))
+        """
 
-    # Note that these amplitudes are those of the component of the E-field parallel to the detector in case of the TE mode and the component of the H-field parallel to the detector in the case of the TM mode.
 
         # Characteristic matrices for the TE and TM modes
-        M_TE, M_TM = self.characteristic_matrix(ll,ux,uy)
-        nHgCdTe = self.nHgCdTe(ll)
-        eHgCdTe = nHgCdTe**2
+        char_matrices = self.characteristic_matrix(ll,ux,uy)
+        M_TE = char_matrices['TE']
+        M_TM = char_matrices['TM']
+        
+        if use_HgCdTe:
+            nHgCdTe = self.nHgCdTe(ll)
+            eHgCdTe = nHgCdTe**2
+        else:
+            nHgCdTe = 1.0
+            eHgCdTe = nHgCdTe**2
         
         # cosine of the angle of incidence
         cos_theta = np.sqrt(1-(ux**2)-(uy**2))
@@ -163,17 +170,46 @@ def filter_detector(object):
         k0 = 2*np.pi/ll
 
         kz = np.sqrt((k0**2)*((nHgCdTe**2)-(u**2)))
+
         if kz.imag < 0.:
 
             print('Choosing decaying solution in HgCdTe')
             kz = -kz
 
 
-        Transmission_TE = 2*cos_theta/((cos_theta*(M_TE[0,0]+((kz/k0/self.muHgCdTe)*M_TE[0,1])))+(M_TE[1,0]+((kz/k0/self.muHgCdTe)*M_TE[2,2])))
-        Transmission_TM = 2*cos_theta/((cos_theta*(M_TM[0,0]+((kz/k0/self.eHgCdTe)*M_TM[0,1])))+(M_TM[1,0]+((kz/k0/self.eHgCdTe)*M_TM[2,2])))
-        
 
-        # Next we compute the amplitudes of the decaying electric field components along the local x, y and z axes. The electric field in the medium at a distance z inside the HgCdTe detector is E_local_(x/y/z)*exp(1j*kz*z+1j*k0*sin_theta*y)
+        Transmission_TE = 2*cos_theta/((cos_theta*(M_TE[0,0]+((kz/k0/self.muHgCdTe)*M_TE[0,1])))+(M_TE[1,0]+((kz/k0/self.muHgCdTe)*M_TE[1,1])))
+        Transmission_TM = 2*cos_theta/((cos_theta*(M_TM[0,0]+((kz/k0/eHgCdTe)*M_TM[0,1])))+(M_TM[1,0]+((kz/k0/eHgCdTe)*M_TM[1,1])))
+
+        return {'TE':Transmission_TE, 'TM':Transmission_TM}
+
+    def Transmitted_E(self, ll, ux, uy, A_TE, A_TM, xp, yp, zp, use_nHgCdTe=True):        
+ 
+        ''' Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at positions xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
+
+     (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. 
+        '''
+
+
+        if use_HgCdTe:
+            nHgCdTe = self.nHgCdTe(ll)
+            eHgCdTe = nHgCdTe**2
+        else:
+            nHgCdTe = 1.0
+            eHgCdTe = nHgCdTe**2
+        
+        k0 = 2*np.pi/ll
+
+        kz = np.sqrt((k0**2)*((nHgCdTe**2)-(u**2)))
+        if kz.imag < 0.:
+
+            print('Choosing decaying solution in HgCdTe')
+            kz = -kz
+
+        T_coeff = self.Transmission(ll, ux, uy)
+        Transmission_TE = T_coeff['TE']
+        Transmission_TM = T_coeff['TM']
+
 
         E_local_x = A_TE*Transmission_TE
         H_local_x = A_TM*Transmission_TM
