@@ -5,6 +5,7 @@ from sklearn import linear_model
 from astropy.io import fits
 from scipy.linalg import expm
 from scipy.interpolate import griddata
+from scipy.fft import ifftn
 
 import zernike
 
@@ -32,6 +33,7 @@ class GeometricOptics:
         self.scaNum = SCAnum
         self.scaX = SCAx
         self.scaY = SCAy
+        #print(self.scaX, self.scaY)
 
         self.xout, self.yout = fromSCAToPos(self.scaNum, self.scaX, self.scaY)
         self.posOut = np.array([self.xout,self.yout])
@@ -62,17 +64,19 @@ class GeometricOptics:
         self.pathDifference = self.pathDiff()
 
         self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
-
+        
+        self.eArray = ifftn(self.integrand)
+        self.magEArray = abs(self.eArray)
 
     #Compute distortion matrix here!
     def computeDistortionMatrix(self):
-        return np.sum(self.coeff*np.prod(np.power(np.array(self.posOut), self.newpolyorder), axis = 3), axis = 2)
+        return np.sum(self.coeff*np.prod(np.power(self.posOut, self.newpolyorder), axis = 4), axis = 3)[0]
     
     def computeDeterminant(self):
         return self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
     
     def loadPupilMask(self):
-        dirName = './stpsf-data/WFI/pupils'
+        dirName = './stpsf-data/WFI/pupils/'
         pupilMaskString = 'SCA{}_full_mask.fits.gz'.format(self.scaNum)
         file = fits.open(dirName+pupilMaskString)
         mask = file[0].data
@@ -82,27 +86,20 @@ class GeometricOptics:
         mydata = pd.read_csv('stpsf-data/WFI/wim_zernikes_cycle9.csv', sep=',', header=0)
         #Define mask to desired wavelength and correct X and Y (Need to modify to within bounds):
         mask1 = (mydata['wavelength']==self.wavelength) & (mydata['sca']==self.scaNum)
+        #print(np.where(mask1 == True))
         localx = mydata['local_x'][mask1]
         localy = mydata['local_y'][mask1]
         points = np.stack((localx,localy)).T
+        #print(points)
         pathDiff = 0
         for i in range(22):
             zIndex = i+1
             zString = ('Z{}'.format(zIndex))
-            zernCoeffsToIntepolate = mydata[zString][mask1]
-            zernCoeff = griddata(points, zernCoeffsToIntepolate, (self.scaX,self.scaY), method = 'linear')
-            nZern, mZern = zernike.noll_to_zernike(i)
+            zernCoeffsToInterpolate = mydata[zString][mask1]
+            #print(zernCoeffsToInterpolate)
+            zernCoeff = griddata(points, zernCoeffsToInterpolate, (self.scaX,self.scaY), method = 'linear')
+            #print(zernCoeff)
+            nZern, mZern = zernike.noll_to_zernike(i+1)
+            #print(zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar))
             pathDiff += zernCoeff*zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar)
         return pathDiff
-
-
-
-
-        
-
-
-
-
-
-
-
