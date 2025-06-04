@@ -130,7 +130,7 @@ class filter_detector(object):
             ek2 = -(uy/u)*np.sqrt(1-(u**2))
             ek3 = u*self.sgn
 
-            A_TE = Ex
+            A_TE = (Ex*(uy/u))-(Ey*(ux/u))
             A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
 
         return {'TE':A_TE, 'TM':A_TM}
