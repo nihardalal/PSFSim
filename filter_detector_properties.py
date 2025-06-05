@@ -133,10 +133,16 @@ class filter_detector(object):
             A_TE = (Ex*(uy/u))-(Ey*(ux/u))
             A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
 
-        return {'TE':A_TE, 'TM':A_TM}
+        return {'TE':A_TE, 'TM':A_TM}   
+ 
+    def unpolarised_mode_decomposition(self, ux, uy, E0):
+    
+    # Function to obtain TE and TM mode amplitudes for unpolarised incident wave with magnitude of electric field E0.
+
+        A_TE = (1./np.sqrt(2))*E0
+        A_TM = -(1./np.sqrt(2))*E0
         
-    
-    
+        return {'TE':A_TE, 'TM':A_TM}   
 
 
         
@@ -183,7 +189,7 @@ class filter_detector(object):
 
         return {'TE':Transmission_TE, 'TM':Transmission_TM}
 
-    def Transmitted_E(self, ll, ux, uy, A_TE, A_TM, xp, yp, zp, use_nHgCdTe=True):        
+    def Transmitted_E(self, ll, ux, uy, A_TE ,A_TM, xp, yp, zp, use_nHgCdTe=True):        
  
         ''' Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at positions xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
 
