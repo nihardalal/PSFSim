@@ -64,8 +64,9 @@ class GeometricOptics:
         self.pathDifference = self.pathDiff()
 
         self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
-        
-        self.eArray = ifftn(self.integrand)
+        self.x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
+        self.ph = np.outer(self.x_minus, self.x_minus) #phase required to translate fft to center
+        self.eArray = np.fft.fft2(self.integrand*self.ph)
         self.magEArray = abs(self.eArray)
 
     #Compute distortion matrix here!
