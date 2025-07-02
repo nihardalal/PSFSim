@@ -42,10 +42,28 @@ class GeometricOptics:
         self.ulen = ulen
         self.umin = -1
         self.umax = 1
-        self.uArray, self.vArray = np.meshgrid(np.arange(self.umin, self.umax, self.ulen), np.arange(self.umin, self.umax, self.ulen))
 
-        self.urhoPolar =  np.sqrt(self.uArray**2+self.vArray**2)
-        self.uthetaPolar = np.arctan2(self.vArray, self.uArray)
+
+        self.uX = np.arange(self.umin, self.umax, self.ulen)
+        self.uY = np.arange(self.umin, self.umax, self.ulen)
+
+        #Compute Distortion Matrix and dterminant
+        self.distortionMatrix = self.computeDistortionMatrix()
+        self.determinant = self.computeDeterminant()
+
+        # Obtain pupil Mask and path difference map
+        self.pupilMask = self.loadPupilMask()
+
+        self.pathDifference = self.pathDiff()
+
+        #self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
+        #self.x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
+        #self.ph = np.outer(self.x_minus, self.x_minus) #phase required to translate fft to center
+        #self.eArray = np.fft.fft2(self.integrand*self.ph)
+        #self.magEArray = abs(self.eArray)
+
+    #Compute distortion matrix here!
+    def computeDistortionMatrix(self):
 
         #Load in polynomial fits to Jacobian
         jacobian_fit_file_name = './data/jacobian_fits.npy'
@@ -54,27 +72,15 @@ class GeometricOptics:
         self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
         self.newpolyorder = self.jacobian_fits['exponents'][self.wavindex]
 
-        #Compute Distortion Matrix and dterminants
-        self.distortionMatrix = self.computeDistortionMatrix()
-        self.determinant = self.computeDeterminant()
-        self.determinant*=180/np.pi
-
-        self.pupilMask = self.loadPupilMask()
-
-        self.pathDifference = self.pathDiff()
-
-        self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
-        self.x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
-        self.ph = np.outer(self.x_minus, self.x_minus) #phase required to translate fft to center
-        self.eArray = np.fft.fft2(self.integrand*self.ph)
-        self.magEArray = abs(self.eArray)
-
-    #Compute distortion matrix here!
-    def computeDistortionMatrix(self):
         return np.sum(self.coeff*np.prod(np.power(self.posOut, self.newpolyorder), axis = 4), axis = 3)[0]
     
     def computeDeterminant(self):
-        return self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
+
+        determinant = self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
+
+        determinant *= 180/np.pi
+
+        return determinant
     
     def loadPupilMask(self):
         dirName = './stpsf-data/WFI/pupils/'
@@ -84,6 +90,12 @@ class GeometricOptics:
         return mask
     
     def pathDiff(self):
+
+        self.uArray, self.vArray = np.meshgrid(np.arange(self.umin, self.umax, self.ulen), np.arange(self.umin, self.umax, self.ulen))
+
+        self.urhoPolar =  np.sqrt(self.uArray**2+self.vArray**2)
+        self.uthetaPolar = np.arctan2(self.vArray, self.uArray)
+
         mydata = pd.read_csv('stpsf-data/WFI/wim_zernikes_cycle9.csv', sep=',', header=0)
         #Define mask to desired wavelength and correct X and Y (Need to modify to within bounds):
         mask1 = (mydata['wavelength']==self.wavelength) & (mydata['sca']==self.scaNum)
