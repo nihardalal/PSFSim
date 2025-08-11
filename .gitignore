@@ -1,2 +1,4 @@
 outImage.fits
 test.ipynb
+*.ipynb
+__pycache__
