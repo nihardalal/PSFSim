@@ -3,3 +3,4 @@ test.ipynb
 *.ipynb
 __pycache__
 *.swp
+./ipynb_checkpoints
