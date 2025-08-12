@@ -6,6 +6,7 @@ from astropy.io import fits
 from scipy.linalg import expm
 from scipy.interpolate import griddata
 from scipy.fft import ifftn
+from romantrace import RomanRayBundle
 
 import zernike
 
@@ -43,6 +44,7 @@ class GeometricOptics:
         self.umin = -1
         self.umax = 1
 
+        self.pupilSampling = 8
 
         self.uX = np.arange(self.umin, self.umax, self.ulen)
         self.uY = np.arange(self.umin, self.umax, self.ulen)
@@ -55,6 +57,8 @@ class GeometricOptics:
         self.pupilMask = self.loadPupilMask()
 
         self.pathDifference = self.pathDiff()
+
+        self.usefilter = 'H'
 
         #self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
         #self.x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
@@ -82,11 +86,15 @@ class GeometricOptics:
 
         return determinant
     
-    def loadPupilMask(self):
-        dirName = './stpsf-data/WFI/pupils/'
-        pupilMaskString = 'SCA{}_full_mask.fits.gz'.format(self.scaNum)
-        file = fits.open(dirName+pupilMaskString)
-        mask = file[0].data
+    def loadPupilMask(self, use_ray_trace = False):
+        if use_ray_trace:
+            rb = RomanRayBundle(self.xout, self.yout, self.pupilSampling, self.usefilter, wl = self.wavelength, hasE = True)
+            mask = rb.open
+        else:
+            dirName = './stpsf-data/WFI/pupils/'
+            pupilMaskString = 'SCA{}_full_mask.fits.gz'.format(self.scaNum)
+            file = fits.open(dirName+pupilMaskString)
+            mask = file[0].data
         return mask
     
     def pathDiff(self):
