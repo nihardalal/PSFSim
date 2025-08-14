@@ -386,7 +386,7 @@ class RayBundle:
 # Most information is in CODE V format, but some was converted to be
 # usable in this Python script.
 
-def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False):
+def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, jacobian = np.array([[1,0],[0,1]])):
     """Carries out trace through RST optics.
     xan, yan : angles in degrees in WFI local field angles
     N : pupil sampling
@@ -409,7 +409,7 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False):
     if wl is None: wl=wlref
 
     # initialization
-    RB = RayBundle(xan, yan, N, wl=wl, wlref=wlref, hasE=hasE)
+    RB = RayBundle(xan, yan, N, wl=wl, wlref=wlref, hasE=hasE, jacobian = jacobian)
 
     # obstructions:
 
