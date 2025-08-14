@@ -78,10 +78,11 @@ class RayBundle:
         a_[0,1:] = 0.
         return np.einsum('ij,...j->...i', a_, b)
 
-    def __init__(self, xan, yan, N, hasE=False, width=2500., startpos = 3500., wl=1.29e-3, wlref=1.29e-3):
+    def __init__(self, xan, yan, N, hasE=False, width=2500., startpos = 3500., wl=1.29e-3, wlref=1.29e-3, jacobian = np.array([[1,0],[0,1]])):
         """Constructor, from a given position xan, yan in WFI coordiantes (in degrees)
         and the given bundle size (N x N)
         The 'hasE' argument tells whether to build an E-field or just do the ray trace (False, default)
+        Jacobian will read in a 2 by 2 matrix, defaulting to identity. 
         """
 
         self.N = N
@@ -95,9 +96,12 @@ class RayBundle:
         s = np.linspace(-width/2.*(1-1./N),width/2.*(1-1./N),N)
         xi,yi = np.meshgrid(s,s)
         self.x[:,:,0] = 1.
-        self.x[:,:,1] = xi
-        self.x[:,:,2] = yi
+        self.x[:,:,1] = jacobian[0][0]*xi+jacobian[0][1]*yi
+        self.x[:,:,2] = jacobian[1][0]*xi+jacobian[1][1]*yi
         self.x[:,:,3] = startpos
+
+        xi = self.x[:,:, 1]
+        yi = self.x[:,:, 2]
 
         self.xyi = self.x[:,:,1:3]
 
