@@ -10,6 +10,30 @@ from romantrace import RomanRayBundle
 
 import zernike
 
+def fromAngletoFPA(xan, yan, wavelength = 0.48):
+    poly_fit_file_name = './data/AngletoFPAPoly.npy'
+    poly_fits = np.load(poly_fit_file_name)
+    wavindex = np.where(poly_fits['wavelength'] == wavelength)
+    coeff = poly_fits['coefficients'][wavindex]
+    exponents = poly_fits['exponents'][wavindex]
+    xpowers = xan**exponents[:,:, 0]
+    ypowers = yan**exponents[:,:,1]
+    xterms = coeff[:,:,0]*xpowers*ypowers
+    yterms = coeff[:,:,1]*xpowers*ypowers
+    return (np.sum(xterms), np.sum(yterms))
+
+def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
+    poly_fit_file_name = './data/FPAtoAnglePoly.npy'
+    poly_fits = np.load(poly_fit_file_name)
+    wavindex = np.where(poly_fits['wavelength'] == wavelength)
+    coeff = poly_fits['coefficients'][wavindex]
+    exponents = poly_fits['exponents'][wavindex]
+    xpowers = FPAx**exponents[:,:, 0]
+    ypowers = FPAy**exponents[:,:,1]
+    xterms = coeff[:,:,0]*xpowers*ypowers
+    yterms = coeff[:,:,1]*xpowers*ypowers
+    return (np.sum(xterms), np.sum(yterms))
+
 #Helper function that computes xout, yout from SCAnum and SCApos here
 #Taken from pyimcom config.py https://github.com/kailicao/pyimcom/blob/main/config.py line 121
 def fromSCAToPos(SCAnum, SCAx, SCAy):
@@ -44,7 +68,7 @@ class GeometricOptics:
         self.umin = -1
         self.umax = 1
 
-        self.pupilSampling = 8
+        self.pupilSampling = 512
 
         self.uX = np.arange(self.umin, self.umax, self.ulen)
         self.uY = np.arange(self.umin, self.umax, self.ulen)
@@ -67,22 +91,40 @@ class GeometricOptics:
         #self.magEArray = abs(self.eArray)
 
     #Compute distortion matrix here!
+    #Should return [[d(FPAx)/d(xan), d(FPAx)/d(yan)], [d(FPAy)/d(xan), d(FPAy)/d(yan)]]
     def computeDistortionMatrix(self):
 
         #Load in polynomial fits to Jacobian
-        jacobian_fit_file_name = './data/jacobian_fits.npy'
+        jacobian_fit_file_name = './data/AngletoFPAPoly.npy'
         self.jacobian_fits = np.load(jacobian_fit_file_name)
         self.wavindex = np.where(self.jacobian_fits['wavelength'] == self.wavelength)
         self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
-        self.newpolyorder = self.jacobian_fits['exponents'][self.wavindex]
+        self.exponents = self.jacobian_fits['exponents'][self.wavindex]
+        xpowers = self.exponents[:,:,0]
+        ypowers = self.exponents[:,:,1]
+        newpowersx = np.clip(xpowers-1,0,None)
+        newpowersy = np.clip(ypowers-1,0,None)
 
-        return np.sum(self.coeff*np.prod(np.power(self.posOut, self.newpolyorder), axis = 4), axis = 3)[0]
+        self.newpolyorder = np.empty((2,2,2,21), dtype = object)
+        self.newpolyorder[0][0] = np.stack((newpowersx,ypowers), axis = 1)
+        self.newpolyorder[0][1] = np.stack((xpowers,newpowersy), axis = 1)
+        self.newpolyorder[1][0] = np.stack((newpowersx,ypowers), axis = 1)
+        self.newpolyorder[1][1] = np.stack((xpowers,newpowersy), axis = 1)
+        self.newpolyorder = np.moveaxis(self.newpolyorder, 3, 2)
+
+        jacob = np.empty((2,2,21), dtype = object)
+        jacob[0][0] = xpowers*self.coeff[:,:,0]
+        jacob[0][1] = ypowers*self.coeff[:,:,0]
+        jacob[1][0] = xpowers*self.coeff[:,:,1]
+        jacob[1][1] = ypowers*self.coeff[:,:,1]
+
+        return np.sum(jacob*np.prod(np.power(self.posOut, self.newpolyorder), axis = 3), axis = 2)
     
     def computeDeterminant(self):
 
         determinant = self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
 
-        determinant *= 180/np.pi
+        determinant *= (180/np.pi)**2
 
         return determinant
     
