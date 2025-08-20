@@ -11,6 +11,7 @@ from romantrace import RomanRayBundle
 import zernike
 
 def fromAngletoFPA(xan, yan, wavelength = 0.48):
+    #xan, yan in degrees, wavelength in micrometers
     poly_fit_file_name = './data/AngletoFPAPoly.npy'
     poly_fits = np.load(poly_fit_file_name)
     wavindex = np.where(poly_fits['wavelength'] == wavelength)
@@ -23,6 +24,7 @@ def fromAngletoFPA(xan, yan, wavelength = 0.48):
     return (np.sum(xterms), np.sum(yterms))
 
 def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
+    #FPAx, FPAy in mm, wavelength in micrometers
     poly_fit_file_name = './data/FPAtoAnglePoly.npy'
     poly_fits = np.load(poly_fit_file_name)
     wavindex = np.where(poly_fits['wavelength'] == wavelength)
@@ -52,6 +54,8 @@ def fromSCAToPos(SCAnum, SCAx, SCAy):
 
 class GeometricOptics:
     def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048):
+        #sca position in mm
+        #wavelength in micrometers
 
         self.wavelength = wavelength
 
