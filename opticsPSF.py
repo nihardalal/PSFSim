@@ -35,7 +35,7 @@ def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
     return (np.sum(xterms), np.sum(yterms))
 
 #Helper function that computes xout, yout from SCAnum and SCApos here
-#Taken from pyimcom config.py https://github.com/kailicao/pyimcom/blob/main/config.py line 121
+#Taken from pyimcom config.py https://github.com/Roman-HLIS-Cosmology-PIT/pyimcom/blob/main/src/pyimcom/config.py line 121
 def fromSCAToPos(SCAnum, SCAx, SCAy):
     xfpa = np.array([-22.14, -22.29, -22.44, -66.42, -66.92, -67.42,-110.70,-111.48,-112.64,
                      22.14,  22.29,  22.44,  66.42,  66.92,  67.42, 110.70, 111.48, 112.64])
