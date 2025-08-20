@@ -189,15 +189,15 @@ class filter_detector(object):
 
         return {'TE':Transmission_TE, 'TM':Transmission_TM}
 
-    def Transmitted_E(self, ll, ux, uy, A_TE ,A_TM, xp, yp, zp, use_nHgCdTe=True):        
+    def Transmitted_E(self, ll, ux, uy, A_TE=1 ,A_TM=1, zp=0, use_nHgCdTe=True):        
  
         ''' Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at positions xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
 
-     (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. 
+     (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. The returned electric field does not include dependence on xp and yp (see notes)
         '''
+        u = np.sqrt((ux**2)+(uy**2))
 
-
-        if use_HgCdTe:
+        if use_nHgCdTe:
             nHgCdTe = self.nHgCdTe(ll)
             eHgCdTe = nHgCdTe**2
         else:
@@ -221,7 +221,7 @@ class filter_detector(object):
         H_local_x = A_TM*Transmission_TM
 
         E_local_y = (1j/(k0*eHgCdTe))*(1j*kz)*H_local_x
-        E_local_z = (sin_theta/eHgCdTe)*H_local_x
+        E_local_z = (u/eHgCdTe)*H_local_x
 
         E_local = np.array([E_local_x, E_local_y, E_local_z])
 
