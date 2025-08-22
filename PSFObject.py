@@ -9,7 +9,8 @@ from scipy.fft import ifftn
 
 from filter_detector_properties import filter_detector
 from opticsPSF import GeometricOptics
-
+import WFI_coordinate_transformations as WFI
+from MTF import MTF_SCA
 
 interference_filter = filter_detector(n1=1.5, t1=0.3, n2=1.5, t2=0.3, n3=1.5, t3=0.3,sgn=1)
 
@@ -17,7 +18,7 @@ interference_filter = filter_detector(n1=1.5, t1=0.3, n2=1.5, t2=0.3, n3=1.5, t3
 
 class PSFObject(object):
 
-    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, ulen = 2048):
+    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, ulen = 2048, npix_boundary=1):
 
         '''
         Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength (and possibly others) 
@@ -25,12 +26,18 @@ class PSFObject(object):
 
         self.Optics = GeometricOptics(SCAnum, SCAx, SCAy, wavelength, ulen)
         self.wavelength = wavelength
-            
-        # Add other attributes later -- like a RayBundle instance? 
+        self.npix_boundary = npix_boundary
+
+        self.sX = (self.wavelength/(self.Optics.umax-self.Optics.umin))*(-(self.Optics.ulen/2.) + np.array(range(self.Optics.ulen))) # postage stamp coordinates along the FPA axes in microns
+        self.sY = (self.wavelength/(self.Optics.umax-self.Optics.umin))*(-(self.Optics.ulen/2.) + np.array(range(self.Optics.ulen))) # postage stamp coordinates along the FPA axes in microns
+
+        
+        
+
 
     def get_E_in_detector(self,z=0):
 
-        ''' Creates self.Ex, self.Ey, self.Ex -- arrays of electric field amplitudes within the detector at depth zp for self.uX and self.uY. Ideally should create a 3D array at points (xp, yp, zp)
+        ''' Creates self.Ex, self.Ey, self.Ex -- arrays of electric field amplitudes within the detector at depth zp for self.uX and self.uY. Returns a 2D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA. The size of the postage stamp and resolution are determined by ulen.
         '''
         ulen = self.Optics.ulen
         uX = self.Optics.uX
@@ -71,13 +78,55 @@ class PSFObject(object):
         self.Ez = np.fft.fft2(Ez)
         
         self.Intensity = (abs(self.Ex)**2) + (abs(self.Ey)**2) + (abs(self.Ez)**2)
-
         return
 
- 
-    def drawImage(self):
-        # Add later
-        pass
+    def get_MTF_SCA(self, npix_boundary=1):
+
+        """
+        Returns a 2D array of MTF_SCA outputs for the points in the postage stamp with postage stamp coordinates (sX, sY) in microns.
+        npix_boundary: number of pixels in the boundary layer where reflection boundary conditions are applied
+        """
+        nside = 4088
+        MTF_SCA_array = np.zeros((self.Optics.ulen, self.Optics.ulen, nside, nside), dtype=np.complex128)
+
+        XAnalysis, YAnalysis = WFI.SCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+
+        for index_sx in range(self.Optics.ulen):
+            for index_sy in range(self.Optics.ulen):
+
+                sx = self.sX[index_sx]
+                sy = self.sY[index_sy]
+
+                MTF_SCA_array[index_sx, index_sy, :, :] = MTF_SCA(XAnalysis+sx, YAnalysis+sy, npix_boundary=npix_boundary)
+
+        self.MTF_SCA_array = MTF_SCA_array
+
+    def get_detector_image(self):
+        """
+        Returns the 4088x4088 detector image as a 2D array of intensity values.
+        """
+
+        if not hasattr(self, 'Intensity'):
+            self.get_E_in_detector()
+
+        if not hasattr(self, 'MTF_SCA_array'):
+            self.get_MTF_SCA(npix_boundary=self.npix_boundary)
+
+        # Compute the detector image by summing the contributions from all points in the postage stamp
+        detector_image = np.zeros((4088, 4088), dtype=np.float64)
+
+        dsX = self.Optics.wavelength / (self.Optics.umax - self.Optics.umin)
+        dsY = self.Optics.wavelength / (self.Optics.umax - self.Optics.umin)
+
+        for index_sx in range(self.Optics.ulen):
+            for index_sy in range(self.Optics.ulen):
+                detector_image += self.MTF_SCA_array[index_sx, index_sy, :, :] * self.Intensity[index_sx, index_sy] * dsX * dsY
+
+        self.detector_image = detector_image
+
+
+        
+    
 
 
 
