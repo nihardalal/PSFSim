@@ -89,7 +89,7 @@ class PSFObject(object):
         nside = 4088
         MTF_SCA_array = np.zeros((self.Optics.ulen, self.Optics.ulen, nside, nside), dtype=np.complex128)
 
-        XAnalysis, YAnalysis = WFI.SCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
 
         for index_sx in range(self.Optics.ulen):
             for index_sy in range(self.Optics.ulen):
