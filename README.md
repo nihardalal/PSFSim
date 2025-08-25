@@ -1,10 +1,5 @@
 # PSFSim
 
-Repository for simulations for testing point spread function measurements for the Roman Space Telescope. 
+Repository for simulations for testing point spread function measurements for the Roman Space Telescope. In development. 
 
-
-Run with 
-
-```ruby
-python makeImage.py /users/PCON0003/cond0007/PSF-TEST-FILES/Roman_WAS_simple_model_H158_13814_14.fits besancon_fixed.fits scaNum -b
-```
+Written by Nihar Dalal, Charuhas Shiveshwarkar, and Chris Hirata
