@@ -1,5 +1,30 @@
 import numpy as np
 
+def fromAngletoFPA(xan, yan, wavelength = 0.48):
+    #xan, yan in degrees, wavelength in micrometers
+    poly_fit_file_name = './data/AngletoFPAPoly.npy'
+    poly_fits = np.load(poly_fit_file_name)
+    wavindex = np.where(poly_fits['wavelength'] == wavelength)
+    coeff = poly_fits['coefficients'][wavindex]
+    exponents = poly_fits['exponents'][wavindex]
+    xpowers = xan**exponents[:,:, 0]
+    ypowers = yan**exponents[:,:,1]
+    xterms = coeff[:,:,0]*xpowers*ypowers
+    yterms = coeff[:,:,1]*xpowers*ypowers
+    return (np.sum(xterms), np.sum(yterms))
+
+def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
+    #FPAx, FPAy in mm, wavelength in micrometers
+    poly_fit_file_name = './data/FPAtoAnglePoly.npy'
+    poly_fits = np.load(poly_fit_file_name)
+    wavindex = np.where(poly_fits['wavelength'] == wavelength)
+    coeff = poly_fits['coefficients'][wavindex]
+    exponents = poly_fits['exponents'][wavindex]
+    xpowers = FPAx**exponents[:,:, 0]
+    ypowers = FPAy**exponents[:,:,1]
+    xterms = coeff[:,:,0]*xpowers*ypowers
+    yterms = coeff[:,:,1]*xpowers*ypowers
+    return (np.sum(xterms), np.sum(yterms))
 
 def fromSCAToFPA(SCAnum, SCAx, SCAy):
     """

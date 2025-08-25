@@ -8,49 +8,23 @@ from scipy.interpolate import griddata
 from scipy.fft import ifftn
 from romantrace import RomanRayBundle
 
+from WFI_coordinate_transformations import fromSCAToFPA, fromFPAtoAngle, fromAngletoFPA
+
 import zernike
 
-def fromAngletoFPA(xan, yan, wavelength = 0.48):
-    #xan, yan in degrees, wavelength in micrometers
-    poly_fit_file_name = './data/AngletoFPAPoly.npy'
-    poly_fits = np.load(poly_fit_file_name)
-    wavindex = np.where(poly_fits['wavelength'] == wavelength)
-    coeff = poly_fits['coefficients'][wavindex]
-    exponents = poly_fits['exponents'][wavindex]
-    xpowers = xan**exponents[:,:, 0]
-    ypowers = yan**exponents[:,:,1]
-    xterms = coeff[:,:,0]*xpowers*ypowers
-    yterms = coeff[:,:,1]*xpowers*ypowers
-    return (np.sum(xterms), np.sum(yterms))
+def compute_jacobian(u, dx=1.0, dy=1.0):
+    # Compute gradients for each component
+    dux_dx, dux_dy = np.gradient(u[..., 0], dx, dy, axis=(1, 0))
+    duy_dx, duy_dy = np.gradient(u[..., 1], dx, dy, axis=(1, 0))
 
-def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
-    #FPAx, FPAy in mm, wavelength in micrometers
-    poly_fit_file_name = './data/FPAtoAnglePoly.npy'
-    poly_fits = np.load(poly_fit_file_name)
-    wavindex = np.where(poly_fits['wavelength'] == wavelength)
-    coeff = poly_fits['coefficients'][wavindex]
-    exponents = poly_fits['exponents'][wavindex]
-    xpowers = FPAx**exponents[:,:, 0]
-    ypowers = FPAy**exponents[:,:,1]
-    xterms = coeff[:,:,0]*xpowers*ypowers
-    yterms = coeff[:,:,1]*xpowers*ypowers
-    return (np.sum(xterms), np.sum(yterms))
+    # Construct the Jacobian
+    jacobian = np.empty((u.shape[0], u.shape[1], 2, 2))
+    jacobian[..., 0, 0] = dux_dx  # d(u_x)/dx
+    jacobian[..., 0, 1] = dux_dy  # d(u_x)/dy
+    jacobian[..., 1, 0] = duy_dx  # d(u_y)/dx
+    jacobian[..., 1, 1] = duy_dy  # d(u_y)/dy
 
-#Helper function that computes xout, yout from SCAnum and SCApos here
-#Taken from pyimcom config.py https://github.com/Roman-HLIS-Cosmology-PIT/pyimcom/blob/main/src/pyimcom/config.py line 121
-def fromSCAToPos(SCAnum, SCAx, SCAy):
-    xfpa = np.array([-22.14, -22.29, -22.44, -66.42, -66.92, -67.42,-110.70,-111.48,-112.64,
-                     22.14,  22.29,  22.44,  66.42,  66.92,  67.42, 110.70, 111.48, 112.64])
-    yfpa = np.array([ 12.15, -37.03, -82.06,  20.90, -28.28, -73.06,  42.20,  -6.98, -51.06,
-                     12.15, -37.03, -82.06,  20.90, -28.28, -73.06,  42.20,  -6.98, -51.06])
-    scIndex = SCAnum-1
-    pixsize = 0.01
-    nside = 4088
-    sca_orient = np.array([-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1]).astype(np.int16)
-    if np.amin(SCAnum)<1 or np.amax(SCAnum)>18:
-         raise ValueError('Invalid SCA Number')
-    return (xfpa[scIndex]+ pixsize*(SCAx-(nside-1)/2.)*sca_orient[scIndex],
-            yfpa[scIndex]+ pixsize*(SCAy-(nside-1)/2.)*sca_orient[scIndex], )
+    return jacobian
 
 class GeometricOptics:
     def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048):
@@ -96,45 +70,52 @@ class GeometricOptics:
 
     #Compute distortion matrix here!
     #Should return [[d(FPAx)/d(xan), d(FPAx)/d(yan)], [d(FPAy)/d(xan), d(FPAy)/d(yan)]]
-    def computeDistortionMatrix(self):
+    def computeDistortionMatrix(self, method = 'raytrace'):
+        if method=='poly':
+            #Load in polynomial fits to Jacobian
+            jacobian_fit_file_name = './data/FPAtoAnglePoly.npy'
+            self.jacobian_fits = np.load(jacobian_fit_file_name)
+            self.wavindex = np.where(self.jacobian_fits['wavelength'] == self.wavelength)
+            self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
+            self.exponents = self.jacobian_fits['exponents'][self.wavindex]
+            xpowers = self.exponents[:,:,0]
+            ypowers = self.exponents[:,:,1]
+            newpowersx = np.clip(xpowers-1,0,None)
+            newpowersy = np.clip(ypowers-1,0,None)
 
-        #Load in polynomial fits to Jacobian
-        jacobian_fit_file_name = './data/FPAtoAnglePoly.npy'
-        self.jacobian_fits = np.load(jacobian_fit_file_name)
-        self.wavindex = np.where(self.jacobian_fits['wavelength'] == self.wavelength)
-        self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
-        self.exponents = self.jacobian_fits['exponents'][self.wavindex]
-        xpowers = self.exponents[:,:,0]
-        ypowers = self.exponents[:,:,1]
-        newpowersx = np.clip(xpowers-1,0,None)
-        newpowersy = np.clip(ypowers-1,0,None)
+            self.newpolyorder = np.empty((2,2,2,21), dtype = object)
+            self.newpolyorder[0][0] = np.stack((newpowersx,ypowers), axis = 1)
+            self.newpolyorder[0][1] = np.stack((xpowers,newpowersy), axis = 1)
+            self.newpolyorder[1][0] = np.stack((newpowersx,ypowers), axis = 1)
+            self.newpolyorder[1][1] = np.stack((xpowers,newpowersy), axis = 1)
+            self.newpolyorder = np.moveaxis(self.newpolyorder, 3, 2)
 
-        self.newpolyorder = np.empty((2,2,2,21), dtype = object)
-        self.newpolyorder[0][0] = np.stack((newpowersx,ypowers), axis = 1)
-        self.newpolyorder[0][1] = np.stack((xpowers,newpowersy), axis = 1)
-        self.newpolyorder[1][0] = np.stack((newpowersx,ypowers), axis = 1)
-        self.newpolyorder[1][1] = np.stack((xpowers,newpowersy), axis = 1)
-        self.newpolyorder = np.moveaxis(self.newpolyorder, 3, 2)
+            jacob = np.empty((2,2,21), dtype = object)
+            jacob[0][0] = xpowers*self.coeff[:,:,0]
+            jacob[0][1] = ypowers*self.coeff[:,:,0]
+            jacob[1][0] = xpowers*self.coeff[:,:,1]
+            jacob[1][1] = ypowers*self.coeff[:,:,1]
 
-        jacob = np.empty((2,2,21), dtype = object)
-        jacob[0][0] = xpowers*self.coeff[:,:,0]
-        jacob[0][1] = ypowers*self.coeff[:,:,0]
-        jacob[1][0] = xpowers*self.coeff[:,:,1]
-        jacob[1][1] = ypowers*self.coeff[:,:,1]
+            mat = np.sum(jacob*np.prod(np.power(self.posOut, self.newpolyorder), axis = 3), axis = 2)
+            mat *= np.pi/180
+        elif method=='raytrace':
+            xan, yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
+            raytrace = RomanRayBundle(xan, yan, 8, 'H', wl=self.wavelength*0.001, hasE=True)
+            mat = compute_jacobian(raytrace.u, dx = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0], 
+                                   dy = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0])[3,3,:,:]
+        else:
+            raise Exception("Invalid method for computing distortion matrix")
+        return mat
 
-        return np.sum(jacob*np.prod(np.power(self.posOut, self.newpolyorder), axis = 3), axis = 2)
     
     def computeDeterminant(self):
 
-        determinant = self.distortionMatrix[0][1]*self.distortionMatrix[1][0] - self.distortionMatrix[0][0]*self.distortionMatrix[1][1]
-
-        determinant *= (180/np.pi)**2
-
+        determinant = self.distortionMatrix[0][0]*self.distortionMatrix[1][1] - self.distortionMatrix[1][0]*self.distortionMatrix[0][1]
         return determinant
     
     def loadPupilMask(self, use_ray_trace = False):
         if use_ray_trace:
-            rb = RomanRayBundle(self.xout, self.yout, self.pupilSampling, self.usefilter, wl = self.wavelength, hasE = True)
+            rb = RomanRayBundle(self.xout, self.yout, self.pupilSampling, self.usefilter, wl = self.wavelength, hasE = True, jacobian = self.distortionMatrix)
             mask = rb.open
         else:
             dirName = './stpsf-data/WFI/pupils/'
