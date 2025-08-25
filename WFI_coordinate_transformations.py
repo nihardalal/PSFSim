@@ -43,7 +43,7 @@ def fromSCAToFPA(SCAnum, SCAx, SCAy):
     return (xfpa[scIndex]+ pixsize*(SCAx-(nside-1)/2.)*sca_orient[scIndex],
             yfpa[scIndex]+ pixsize*(SCAy-(nside-1)/2.)*sca_orient[scIndex], )
 
-def SCAtoAnalysis(SCAnum, SCAx, SCAy):
+def fromSCAtoAnalysis(SCAnum, SCAx, SCAy):
     """
     Coordinate transformation converting SCA coordinates (in pixels) to Analysis coordinates (in microns). The Analysis coordinates system is defined to be the FPA coordinate system with origin shifted to the center of the SCA
     """
