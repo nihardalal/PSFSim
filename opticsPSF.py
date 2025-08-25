@@ -99,7 +99,7 @@ class GeometricOptics:
     def computeDistortionMatrix(self):
 
         #Load in polynomial fits to Jacobian
-        jacobian_fit_file_name = './data/AngletoFPAPoly.npy'
+        jacobian_fit_file_name = './data/FPAtoAnglePoly.npy'
         self.jacobian_fits = np.load(jacobian_fit_file_name)
         self.wavindex = np.where(self.jacobian_fits['wavelength'] == self.wavelength)
         self.coeff = self.jacobian_fits['coefficients'][self.wavindex]
