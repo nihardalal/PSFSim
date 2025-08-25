@@ -38,7 +38,7 @@ class GeometricOptics:
         self.scaY = SCAy
         #print(self.scaX, self.scaY)
 
-        self.xout, self.yout = fromSCAToPos(self.scaNum, self.scaX, self.scaY)
+        self.xout, self.yout = fromSCAToFPA(self.scaNum, self.scaX, self.scaY)
         self.posOut = np.array([self.xout,self.yout])
 
         #Set up u,v array for computations of Zernicke Polynomials
@@ -52,11 +52,11 @@ class GeometricOptics:
         self.uY = np.arange(self.umin, self.umax, self.ulen)
 
         #Compute Distortion Matrix and dterminant
-        self.distortionMatrix = self.computeDistortionMatrix()
+        self.distortionMatrix = self.computeDistortionMatrix(method='raytrace')
         self.determinant = self.computeDeterminant()
 
         # Obtain pupil Mask and path difference map
-        self.pupilMask = self.loadPupilMask()
+        self.pupilMask = self.loadPupilMask(use_ray_trace=True)
 
         self.pathDifference = self.pathDiff()
 
