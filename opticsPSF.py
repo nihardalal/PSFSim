@@ -48,8 +48,8 @@ class GeometricOptics:
 
         self.pupilSampling = 512
 
-        self.uX = np.arange(self.umin, self.umax, self.ulen)
-        self.uY = np.arange(self.umin, self.umax, self.ulen)
+        self.uX = np.linspace(self.umin, self.umax, self.ulen)
+        self.uY = np.linspace(self.umin, self.umax, self.ulen)
 
         self.usefilter = 'H'
 
@@ -58,7 +58,7 @@ class GeometricOptics:
         self.determinant = self.computeDeterminant()
 
         # Obtain pupil Mask and path difference map
-        self.pupilMask = self.loadPupilMask(use_ray_trace=False)
+        self.pupilMask = self.loadPupilMask(use_ray_trace=True)
 
         self.pathDifference = self.pathDiff()
 
@@ -128,7 +128,7 @@ class GeometricOptics:
     
     def pathDiff(self):
 
-        self.uArray, self.vArray = np.meshgrid(np.arange(self.umin, self.umax, self.ulen), np.arange(self.umin, self.umax, self.ulen))
+        self.uArray, self.vArray = np.meshgrid(self.uX, self.uY)
 
         self.urhoPolar =  np.sqrt(self.uArray**2+self.vArray**2)
         self.uthetaPolar = np.arctan2(self.vArray, self.uArray)
