@@ -51,6 +51,8 @@ class GeometricOptics:
         self.uX = np.arange(self.umin, self.umax, self.ulen)
         self.uY = np.arange(self.umin, self.umax, self.ulen)
 
+        self.usefilter = 'H'
+
         #Compute Distortion Matrix and dterminant
         self.distortionMatrix = self.computeDistortionMatrix(method='raytrace')
         self.determinant = self.computeDeterminant()
@@ -60,7 +62,7 @@ class GeometricOptics:
 
         self.pathDifference = self.pathDiff()
 
-        self.usefilter = 'H'
+        
 
         #self.integrand = self.pupilMask*self.determinant*expm(2*np.pi/self.wavelength*1j*self.pathDifference)
         #self.x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
