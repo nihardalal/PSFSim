@@ -101,7 +101,7 @@ class GeometricOptics:
             mat = np.sum(jacob*np.prod(np.power(self.posOut, self.newpolyorder), axis = 3), axis = 2)
             mat *= np.pi/180
         elif method=='raytrace':
-            xan, yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
+            xan, yan = fromFPAtoAngle(self.xout,self.yout, wavelength=self.wavelength)
             raytrace = RomanRayBundle(xan, yan, 8, 'H', wl=self.wavelength*0.001, hasE=True)
             mat = compute_jacobian(raytrace.u, dx = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0], 
                                    dy = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0])[3,3,:,:]
