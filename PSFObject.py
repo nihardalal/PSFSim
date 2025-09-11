@@ -62,10 +62,11 @@ class PSFObject(object):
 
 
         prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
-
+        print('pathDifference = ',self.Optics.pathDifference,'\n')
+        print(self.Optics.pathDifference.shape)
         x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
         ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
-        
+        print('ph = ',ph,'\n')
         prefactor *= ph
 
         E = np.fft.fft2(prefactor)
@@ -79,7 +80,7 @@ class PSFObject(object):
 
     def get_E_in_detector(self,detector_thickness=5, zlen=10):
 
-        ''' Creates self.Ex, self.Ey, self.Ex -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
+        ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
         '''
 
@@ -88,7 +89,7 @@ class PSFObject(object):
         ulen = self.Optics.ulen
         uX = self.Optics.uX
         uY = self.Optics.uY
-
+        print(uX.shape, uY.shape)
         Ex = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
         Ey = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
         Ez = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
