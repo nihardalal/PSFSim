@@ -13,8 +13,10 @@ def fromAngletoFPA(xan, yan, wavelength = 0.48):
     yterms = coeff[:,:,1]*xpowers*ypowers
     return (np.sum(xterms), np.sum(yterms))
 
-def fromFPAtoAngle(FPAx, FPAy, wavelength = 0.48):
+def fromFPAtoAngle(FPApos, wavelength = 0.48):
     #FPAx, FPAy in mm, wavelength in micrometers
+    FPAx = FPApos[0]
+    FPAy = FPApos[1]
     poly_fit_file_name = './data/FPAtoAnglePoly.npy'
     poly_fits = np.load(poly_fit_file_name)
     wavindex = np.where(poly_fits['wavelength'] == wavelength)
