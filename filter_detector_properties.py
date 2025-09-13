@@ -29,14 +29,24 @@ class filter_detector(object):
     #   returns characteristic matrix of the interference filter for (vacuum) wavelength ll and     angle of incidence given by sin_theta = (ux**2 + uy**2)**0.5
 
     #    Note that this function returns a pair of 2x2 matrices which are respectively the chara    cteristic matrices for the TE and TM modes of the incident wave
-
-
+        try:
+            shape = ux.shape
+        except:
+            shape=(1,1)
+        mask = (ux**2 + uy**2) <= 1.0
+        print(mask)
+        
         u = np.sqrt((ux**2)+(uy**2))
+
         
         k0 = 2*np.pi/ll
-        kz1 = k0*np.sqrt((self.n1**2)-(u**2))
-        kz2 = k0*np.sqrt((self.n2**2)-(u**2))
-        kz3 = k0*np.sqrt((self.n3**2)-(u**2))
+        kz1 = np.zeros_like(ux,dtype=np.complex128)
+        kz1[mask] = k0*np.sqrt((self.n1**2)-(u[mask]**2))
+        kz2 = np.zeros_like(ux,dtype=np.complex128)
+        kz2[mask] = k0*np.sqrt((self.n2**2)-(u[mask]**2))
+        kz3 = np.zeros_like(ux,dtype=np.complex128)
+        kz3[mask] = k0*np.sqrt((self.n3**2)-(u[mask]**2))
+       
 
         self.e1 = self.n1**2
         self.e2 = self.n2**2
@@ -48,52 +58,53 @@ class filter_detector(object):
 
 
         # Characteristic matrix of layer 1 for the TE wave 
-        M_TE_1 = np.zeros((2,2),dtype=np.complex128)
+        M_TE_1 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        M_TE_1[0,0] = np.cos(kz1*self.t1)
-        M_TE_1[1,1] = np.cos(kz1*self.t1)
-        M_TE_1[0,1] = -(k0*self.mu1/kz1)*1j*np.sin(kz1*self.t1)
-        M_TE_1[1,0] = -(kz1/k0/self.mu1)*1j*np.sin(kz1*self.t1)
+        print(M_TE_1.shape, M_TE_1[mask])
+        M_TE_1[mask,0,0] = np.cos(kz1[mask]*self.t1)
+        M_TE_1[mask, 1,1] = np.cos(kz1[mask]*self.t1)
+        M_TE_1[mask,0,1] = -(k0*self.mu1/kz1[mask])*1j*np.sin(kz1[mask]*self.t1)
+        M_TE_1[mask,1,0] = -(kz1[mask]/k0/self.mu1)*1j*np.sin(kz1[mask]*self.t1)
 
         # Characteristic matrix of layer 1 for TM wave 
-        M_TM_1 = np.zeros((2,2),dtype=np.complex128)
+        M_TM_1 = np.zeros(shape+(2,2),dtype=np.complex128)
    
-        M_TM_1[0,0] = np.cos(kz1*self.t1)
-        M_TM_1[1,1] = np.cos(kz1*self.t1)
-        M_TM_1[0,1] = -(k0*self.e1/kz1)*1j*np.sin(kz1*self.t1)
-        M_TM_1[1,0] = -(kz1/k0/self.e1)*1j*np.sin(kz1*self.t1)
+        M_TM_1[mask,0,0] = np.cos(kz1[mask]*self.t1)
+        M_TM_1[mask,1,1] = np.cos(kz1[mask]*self.t1)
+        M_TM_1[mask,0,1] = -(k0*self.e1/kz1[mask])*1j*np.sin(kz1[mask]*self.t1)
+        M_TM_1[mask,1,0] = -(kz1[mask]/k0/self.e1)*1j*np.sin(kz1[mask]*self.t1)
         
         # Characteristic matrix of layer 2 for the TE wave 
-        M_TE_2 = np.zeros((2,2),dtype=np.complex128)
+        M_TE_2 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        M_TE_2[0,0] = np.cos(kz2*self.t2)
-        M_TE_2[1,1] = np.cos(kz2*self.t2)
-        M_TE_2[0,1] = -(k0*self.mu2/kz2)*1j*np.sin(kz2*self.t2)
-        M_TE_2[1,0] = -(kz2/k0/self.mu2)*1j*np.sin(kz2*self.t2)
+        M_TE_2[mask,0,0] = np.cos(kz2[mask]*self.t2)
+        M_TE_2[mask,1,1] = np.cos(kz2[mask]*self.t2)
+        M_TE_2[mask,0,1] = -(k0*self.mu2/kz2[mask])*1j*np.sin(kz2[mask]*self.t2)
+        M_TE_2[mask,1,0] = -(kz2[mask]/k0/self.mu2)*1j*np.sin(kz2[mask]*self.t2)
 
         # Characteristic matrix of layer 2 for TM wave 
-        M_TM_2 = np.zeros((2,2),dtype=np.complex128)
+        M_TM_2 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        M_TM_2[0,0] = np.cos(kz2*self.t2)
-        M_TM_2[1,1] = np.cos(kz2*self.t2)
-        M_TM_2[0,1] = -(k0*self.e2/kz2)*1j*np.sin(kz2*self.t2)
-        M_TM_2[1,0] = -(kz2/k0/self.e2)*1j*np.sin(kz2*self.t2)
+        M_TM_2[mask,0,0] = np.cos(kz2[mask]*self.t2)
+        M_TM_2[mask,1,1] = np.cos(kz2[mask]*self.t2)
+        M_TM_2[mask,0,1] = -(k0*self.e2/kz2[mask])*1j*np.sin(kz2[mask]*self.t2)
+        M_TM_2[mask,1,0] = -(kz2[mask]/k0/self.e2)*1j*np.sin(kz2[mask]*self.t2)
         
         # Characteristic matrix of layer 3 for the TE wave 
-        M_TE_3 = np.zeros((2,2),dtype=np.complex128)
+        M_TE_3 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        M_TE_3[0,0] = np.cos(kz3*self.t3)
-        M_TE_3[1,1] = np.cos(kz3*self.t3)
-        M_TE_3[0,1] = -(k0*self.mu3/kz3)*1j*np.sin(kz3*self.t3)
-        M_TE_3[1,0] = -(kz3/k0/self.mu3)*1j*np.sin(kz3*self.t3)
+        M_TE_3[mask,0,0] = np.cos(kz3[mask]*self.t3)
+        M_TE_3[mask,1,1] = np.cos(kz3[mask]*self.t3)
+        M_TE_3[mask,0,1] = -(k0*self.mu3/kz3[mask])*1j*np.sin(kz3[mask]*self.t3)
+        M_TE_3[mask,1,0] = -(kz3[mask]/k0/self.mu3)*1j*np.sin(kz3[mask]*self.t3)
 
         # Characteristic matrix of layer 3 for TM wave 
-        M_TM_3 = np.zeros((2,2),dtype=np.complex128)
+        M_TM_3 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        M_TM_3[0,0] = np.cos(kz3*self.t3)
-        M_TM_3[1,1] = np.cos(kz3*self.t3)
-        M_TM_3[0,1] = -(k0*self.e3/kz3)*1j*np.sin(kz3*self.t3)
-        M_TM_3[1,0] = -(kz3/k0/self.e3)*1j*np.sin(kz3*self.t3)
+        M_TM_3[mask,0,0] = np.cos(kz3[mask]*self.t3)
+        M_TM_3[mask,1,1] = np.cos(kz3[mask]*self.t3)
+        M_TM_3[mask,0,1] = -(k0*self.e3/kz3[mask])*1j*np.sin(kz3[mask]*self.t3)
+        M_TM_3[mask,1,0] = -(kz3[mask]/k0/self.e3)*1j*np.sin(kz3[mask]*self.t3)
         
 
         
@@ -106,12 +117,20 @@ class filter_detector(object):
     def local_to_FPA_rotation(self, ux, uy):
         
         u = np.sqrt((ux**2)+(uy**2))
+        mask = (u <= 1)
+        try: 
+            shape = ux.shape
+        except:
+            shape=(1,1)
+        RT = np.zeros(shape+(3,3),dtype=np.float64)
         
-        if u == 0:
-            RT = np.identity(3)
-        else:
-            RT = np.array([[uy*self.sgn/u, ux/u, 0.],[-(ux*self.sgn/u), uy/u, 0.], [0., 0., self.sgn]])
-
+        RT[mask & (u == 0)] = np.identity(3)
+        RT[mask & (u != 0),0,0] = (uy[mask & (u != 0)]*self.sgn/u[mask & (u != 0)])
+        RT[mask & (u != 0),0,1] = (ux[mask & (u != 0)]/u[mask & (u != 0)])
+        RT[mask & (u != 0), 1,0] = (-(ux[mask & (u != 0)]*self.sgn/u[mask & (u != 0)]))
+        RT[mask & (u != 0),1,1] = (uy[mask & (u != 0)]/u[mask & (u != 0)])
+        RT[mask & (u != 0),2,2] = self.sgn
+        
         return RT
 
 
@@ -120,27 +139,46 @@ class filter_detector(object):
     # Function to decompose incident electric field (specified by components Ex, Ey, Ez along FPA axes) into TE and TM modes 
 
         u = np.sqrt((ux**2)+(uy**2))
+        try:
+            shape = ux.shape
+        except:
+            shape=(1,1)
+        mask = (u <= 1)
+        A_TE = np.zeros(shape, dtype=np.complex128)
+        A_TM = np.zeros(shape, dtype=np.complex128)
 
-        if u == 0:
-            A_TE = Ex
-            A_TM = -Ey
+        A_TE[mask & (u == 0)] = Ex[mask & (u == 0)]
+        A_TM[mask & (u == 0)] = -Ey[mask & (u == 0)]
 
-        else:
-            ek1 = -(ux/u)*np.sqrt(1-(u**2))
-            ek2 = -(uy/u)*np.sqrt(1-(u**2))
-            ek3 = u*self.sgn
+        ek1 = np.zeros_like(ux,dtype=np.complex128)
+        ek2 = np.zeros_like(ux,dtype=np.complex128)
+        ek3 = np.zeros_like(ux,dtype=np.complex128)
 
-            A_TE = (Ex*(uy/u))-(Ey*(ux/u))
-            A_TM = (ek1*Ex)+(ek2*Ey)+(ek3*Ez)
+        ek1[mask & (u != 0)] = -(ux[mask & (u != 0)]/u[mask & (u != 0)])*np.sqrt(1-(u[mask & (u != 0)]**2))
+        ek2[mask & (u != 0)] = -(uy[mask & (u != 0)]/u[mask & (u != 0)])*np.sqrt(1-(u[mask & (u != 0)]**2))
+        ek3[mask & (u != 0)] = u[mask & (u != 0)]*self.sgn
 
+        A_TE[mask & (u != 0)] = (Ex[mask & (u != 0)]*(uy[mask & (u != 0)]/u[mask & (u != 0)]))-(Ey[mask & (u != 0)]*(ux[mask & (u != 0)]/u[mask & (u != 0)]))
+        A_TM[mask & (u != 0)] = (ek1[mask & (u != 0)]*Ex[mask & (u != 0)])+(ek2[mask & (u != 0)]*Ey[mask & (u != 0)])+(ek3[mask & (u != 0)]*Ez[mask & (u != 0)])
+        
         return {'TE':A_TE, 'TM':A_TM}   
  
     def unpolarised_mode_decomposition(self, ux, uy, E0=1):
     
     # Function to obtain TE and TM mode amplitudes for unpolarised incident wave with magnitude of electric field E0.
+        u = np.sqrt((ux**2)+(uy**2))
+        mask = (u <= 1)
+        try:
+            shape = ux.shape
+        except:
+            shape=(1,1)
+        #shape = ux.shape
+        A_TE = np.zeros(shape, dtype=np.complex128)
+        A_TM = np.zeros(shape, dtype=np.complex128)
 
-        A_TE = (1./np.sqrt(2))*E0
-        A_TM = -(1./np.sqrt(2))*E0
+        A_TE[mask] = (1./np.sqrt(2))*E0
+        A_TM[mask] = -(1./np.sqrt(2))*E0
+        
         
         return {'TE':A_TE, 'TM':A_TM}   
 
@@ -152,7 +190,12 @@ class filter_detector(object):
         """
         Returns Transmission coefficients of TE and TM modes coming with incident direction (ux, uy, sqrt(1-u^2))
         """
-
+        u = np.sqrt((ux**2)+(uy**2))
+        mask = (u <= 1)
+        try:
+            shape = ux.shape
+        except:
+            shape=(1,1)
 
         # Characteristic matrices for the TE and TM modes
         char_matrices = self.characteristic_matrix(ll,ux,uy)
@@ -167,25 +210,23 @@ class filter_detector(object):
             eHgCdTe = nHgCdTe**2
         
         # cosine of the angle of incidence
-        cos_theta = np.sqrt(1-(ux**2)-(uy**2))
-        sin_theta = np.sqrt((ux**2)+(uy**2))
-
-        # sine of the angle of incidence
-        u = np.sqrt((ux**2)+(uy**2))
+        cos_theta = np.zeros_like(ux,dtype=np.complex128)
+        cos_theta[mask] = np.sqrt(1-(ux[mask]**2)-(uy[mask]**2))
+        
 
         k0 = 2*np.pi/ll
+        kz = np.zeros_like(ux,dtype=np.complex128)
+        kz[mask] = np.sqrt((k0**2)*((nHgCdTe**2)-(u[mask]**2)))
+        
+        kz[mask & (kz.imag < 0.)] = -kz[mask & (kz.imag < 0.)] # choose the root with positive imaginary part
 
-        kz = np.sqrt((k0**2)*((nHgCdTe**2)-(u**2)))
-
-        if kz.imag < 0.:
-
-            print('Choosing decaying solution in HgCdTe')
-            kz = -kz
+        Transmission_TE = np.zeros_like(ux,dtype=np.complex128)
+        Transmission_TM = np.zeros_like(ux,dtype=np.complex128)
 
 
+        Transmission_TE[mask] = 2*cos_theta[mask]/((cos_theta[mask]*(M_TE[mask,0,0]+((kz[mask]/k0/self.muHgCdTe)*M_TE[mask,0,1])))+(M_TE[mask,1,0]+((kz[mask]/k0/self.muHgCdTe)*M_TE[mask,1,1])))
 
-        Transmission_TE = 2*cos_theta/((cos_theta*(M_TE[0,0]+((kz/k0/self.muHgCdTe)*M_TE[0,1])))+(M_TE[1,0]+((kz/k0/self.muHgCdTe)*M_TE[1,1])))
-        Transmission_TM = 2*cos_theta/((cos_theta*(M_TM[0,0]+((kz/k0/eHgCdTe)*M_TM[0,1])))+(M_TM[1,0]+((kz/k0/eHgCdTe)*M_TM[1,1])))
+        Transmission_TM[mask] = 2*cos_theta[mask]/((cos_theta[mask]*(M_TM[mask,0,0]+((kz[mask]/k0/eHgCdTe)*M_TM[mask,0,1])))+(M_TM[mask,1,0]+((kz[mask]/k0/eHgCdTe)*M_TM[mask,1,1])))
 
         return {'TE':Transmission_TE, 'TM':Transmission_TM}
 
@@ -196,6 +237,8 @@ class filter_detector(object):
      (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. The returned electric field does not include dependence on xp and yp (see notes)
         '''
         u = np.sqrt((ux**2)+(uy**2))
+        mask = (u <= 1)
+        shape = ux.shape
 
         if use_nHgCdTe:
             nHgCdTe = self.nHgCdTe(ll)
@@ -206,35 +249,39 @@ class filter_detector(object):
         
         k0 = 2*np.pi/ll
 
-        kz = np.sqrt((k0**2)*((nHgCdTe**2)-(u**2)))
-        if kz.imag < 0.:
-
-            print('Choosing decaying solution in HgCdTe')
-            kz = -kz
-
+        kz = np.zeros_like(ux,dtype=np.complex128)
+        kz[mask] = np.sqrt((k0**2)*((nHgCdTe**2)-(u[mask]**2)))
+        kz[mask & (kz.imag < 0.)] = -kz[mask & (kz.imag < 0.)] # choose the root with positive imaginary part
+        
         T_coeff = self.Transmission(ll, ux, uy)
         Transmission_TE = T_coeff['TE']
         Transmission_TM = T_coeff['TM']
+
+        E_local = np.zeros(shape+(3,),dtype=np.complex128)
 
 
         E_local_x = A_TE*Transmission_TE
         H_local_x = A_TM*Transmission_TM
 
-        E_local_y = (1j/(k0*eHgCdTe))*(1j*kz)*H_local_x
-        E_local_z = (u/eHgCdTe)*H_local_x
+        E_local[mask, 0] = E_local_x[mask]
+        E_local[mask, 1] = (1j/(k0*self.eHgCdTe))*(1j*kz[mask])*H_local_x[mask]
+        E_local[mask, 2] = (u[mask]/self.eHgCdTe)*H_local_x[mask]
 
-        E_local = np.array([E_local_x, E_local_y, E_local_z])
 
         # Resolve components of the E-field along local x and y axes into components along FPA x and y axes
 
         local_to_FPA = self.local_to_FPA_rotation(ux,uy)
 
-        E_FPA_x = np.sum(local_to_FPA[0,:]*E_local[:])
-        E_FPA_y = np.sum(local_to_FPA[1,:]*E_local[:])
-        E_FPA_z = np.sum(local_to_FPA[2,:]*E_local[:])
+        E_FPA_x = np.zeros_like(ux,dtype=np.complex128)
+        E_FPA_y = np.zeros_like(ux,dtype=np.complex128)
+        E_FPA_z = np.zeros_like(ux,dtype=np.complex128)
 
+        E_FPA_x[mask] = np.sum(local_to_FPA[mask, 0,:]*E_local[mask, :], axis =-1)
+        E_FPA_y[mask] = np.sum(local_to_FPA[mask, 1,:]*E_local[mask, :], axis =-1)
+        E_FPA_z[mask] = np.sum(local_to_FPA[mask, 2,:]*E_local[mask, :], axis =-1)
 
-        phase = np.exp((1j*kz*self.sgn*zp))
+        phase = np.zeros_like(ux,dtype=np.complex128)
+        phase[mask] = np.exp((1j*kz[mask]*self.sgn*zp))
         Ex = E_FPA_x*phase
         Ey = E_FPA_y*phase
         Ez = E_FPA_z*phase
