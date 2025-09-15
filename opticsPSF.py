@@ -51,6 +51,9 @@ class GeometricOptics:
         self.uX = np.linspace(self.umin, self.umax, self.ulen)
         self.uY = np.linspace(self.umin, self.umax, self.ulen)
 
+        #Get angular coordinates    
+        self.xan, self.yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
+
         self.usefilter = 'H'
 
         #Compute Distortion Matrix and dterminant
@@ -101,10 +104,12 @@ class GeometricOptics:
             mat = np.sum(jacob*np.prod(np.power(self.posOut, self.newpolyorder), axis = 3), axis = 2)
             mat *= np.pi/180
         elif method=='raytrace':
-            xan, yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
-            raytrace = RomanRayBundle(xan, yan, 8, 'H', wl=self.wavelength*0.001, hasE=True)
+            raytrace = RomanRayBundle(self.xan, self.yan, 8, 'H', wl=self.wavelength*0.001, hasE=True)
             mat = compute_jacobian(raytrace.u, dx = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0], 
                                    dy = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0])[3,3,:,:]
+            #mat has units of inverse degrees right now
+            #mat*= 180/np.pi
+            #mat is now unitless
         else:
             raise Exception("Invalid method for computing distortion matrix")
         return mat
@@ -117,7 +122,9 @@ class GeometricOptics:
     
     def loadPupilMask(self, use_ray_trace = False):
         if use_ray_trace:
-            rb = RomanRayBundle(self.xout, self.yout, self.pupilSampling, self.usefilter, wl = self.wavelength, hasE = True, jacobian = self.distortionMatrix)
+            pupilLength = 2400*8 #in mm
+            jacobian = -pupilLength*self.distortionMatrix
+            rb = RomanRayBundle(self.xan, self.yan, self.pupilSampling, self.usefilter, wl = self.wavelength*0.001, hasE = True, jacobian = jacobian)
             mask = rb.open
         else:
             dirName = './stpsf-data/WFI/pupils/'
