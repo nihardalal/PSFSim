@@ -283,26 +283,38 @@ class filter_detector(object):
         E_FPA_z[mask] = np.sum(local_to_FPA[mask, 2,:]*E_local[mask, :], axis =-1)
 
         print('Calculation of E_FPA done in ', time.time() - start_time, ' seconds')
-        phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
-        #log_phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
-        #np.multiply(1j*kz[mask, na], self.sgn*zp[na, :], out=log_phase[mask, :])
-        #np.exp(log_phase, out=phase)
-        phase[mask, :] = np.exp((1j*kz[mask, na]*self.sgn*zp[na, :]))
+        phase = np.zeros_like(ux,dtype=np.complex128)
+        phase[mask] = np.exp((1j*kz[mask]*self.sgn*zp[mask]))
 
-        print('Calculation of phase done in ', time.time() - start_time, ' seconds')
-        Ex = np.empty(ux.shape + zp.shape,dtype=np.complex128)
-        Ey = np.empty(ux.shape + zp.shape,dtype=np.complex128)
-        Ez = np.empty(ux.shape + zp.shape,dtype=np.complex128)
+        #print('Calculation of phase done in ', time.time() - start_time, ' seconds')
+        #Ex = np.zeros(ux.shape + zp.shape,dtype=np.complex128)
+        #Ey = np.zeros(ux.shape + zp.shape,dtype=np.complex128)
+        #Ez = np.zeros(ux.shape + zp.shape,dtype=np.complex128)
 
-        np.multiply(E_FPA_x[:,:,na], phase, out=Ex)
-        np.multiply(E_FPA_y[:,:,na], phase, out=Ey)
-        np.multiply(E_FPA_z[:,:,na], phase, out=Ez)
-
+        Ex = E_FPA_x*phase
+        Ey = E_FPA_y*phase
+        Ez = E_FPA_z*phase
         print('Total calculation done in ', time.time() - start_time, ' seconds')
 
         return (Ex, Ey, Ez)
 
-    
+    def attenuation_in_HgCdTe(self, ll, ux, uy, zp):
+        """ Returns the attenuation factor in HgCdTe of thickness tp for incident direction (ux, uy, sqrt(1-u^2)) and wavelength ll """
+
+        u = np.sqrt((ux**2)+(uy**2))
+        mask = (u <= 1)
+
+        nHgCdTe = self.nHgCdTe(ll)
+        eHgCdTe = nHgCdTe**2
+        k0 = 2*np.pi/ll
+
+        kz = np.zeros_like(ux,dtype=np.complex128)
+
+        kz[mask] = np.sqrt((k0**2)*((nHgCdTe**2)-(u[mask]**2)))
+        kz[mask & (kz.imag < 0.)] = -kz[mask & (kz.imag < 0.)] # choose the root with positive imaginary part
+        attenuation = np.exp(1j*kz*zp)
+
+        return attenuation
 
 
 

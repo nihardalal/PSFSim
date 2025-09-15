@@ -87,7 +87,7 @@ class PSFObject(object):
         
 
 
-    def get_E_in_detector(self,detector_thickness=5, zlen=50, filter=interference_filter):
+    def get_E_in_detector(self,detector_thickness=5, zlen=10, filter=interference_filter):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
@@ -111,6 +111,22 @@ class PSFObject(object):
         Ey = E[1]
         Ez = E[2]
 
+
+
+
+        k0 = 2.*np.pi/self.wavelength # in microns^-1
+        n = nHgCdTe(self.wavelength)
+        kz = np.zeros_like(uX, dtype=np.complex128)
+        kz[mask] = k0*np.sqrt(n**2 - uX[:,na]**2 - uY[na,:]**2) # in microns^-1
+        mask = (uX**2 + uY**2) <= 1.0
+        kz[mask & (kz.imag < 0)] = -kz[mask & (kz.imag < 0)]
+        for index_z in range(1, zlen):
+            z = z_array[index_z]
+            attenuation = np.exp(1j*kz*z)
+            Ex[:,:,index_z] = Ex[:,:,0]*attenuation
+            Ey[:,:,index_z] = Ey[:,:,0]*attenuation
+            Ez[:,:,index_z] = Ez[:,:,0]*attenuation
+            print(f'Completed z index ', index_z, ' at depth z = ', z, ' microns')
                 
         prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
 
@@ -130,11 +146,10 @@ class PSFObject(object):
         Ez_postage_stamp = np.fft.fft2(Ez, axes=(0,1))
         
         Intensity = (abs(Ex_postage_stamp)**2) + (abs(Ey_postage_stamp)**2) + (abs(Ez_postage_stamp)**2)
-        self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
 
-        self.Intensity = np.trapz(Intensity, x=z_array, axis=2)
+        self.Intensity = np.sum(Intensity*dZ, axis=2)
 
-        
+        self.Filtered_PSF = self.Intensity[:,:,0]/np.sum(self.Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
 
 
         return
