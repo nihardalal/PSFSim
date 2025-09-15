@@ -107,9 +107,7 @@ class GeometricOptics:
             raytrace = RomanRayBundle(self.xan, self.yan, 8, 'H', wl=self.wavelength*0.001, hasE=True)
             mat = compute_jacobian(raytrace.u, dx = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0], 
                                    dy = raytrace.xyi[0,1,0]-raytrace.xyi[0,0,0])[3,3,:,:]
-            #mat has units of inverse degrees right now
-            #mat*= 180/np.pi
-            #mat is now unitless
+            #mat has units of inverse mm
         else:
             raise Exception("Invalid method for computing distortion matrix")
         return mat
