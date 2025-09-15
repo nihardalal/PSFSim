@@ -61,7 +61,7 @@ class GeometricOptics:
         self.determinant = self.computeDeterminant()
 
         # Obtain pupil Mask and path difference map
-        self.pupilMask = self.loadPupilMask(use_ray_trace=True)
+        self.pupilMask = self.loadPupilMask(use_ray_trace=False)
 
         self.pathDifference = self.pathDiff()
 

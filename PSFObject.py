@@ -9,6 +9,7 @@ from scipy.interpolate import griddata
 from scipy.fft import ifftn
 
 from filter_detector_properties import filter_detector
+from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import MTF_SCA
@@ -61,11 +62,14 @@ class PSFObject(object):
         """
 
 
+        print('pathDifference = ',self.Optics.pathDifference,'\n')
+        print(self.Optics.pathDifference.shape)
+        print(self.Optics.pupilMask.shape)
         prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
-
+        
         x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
         ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
-        
+        print('ph = ',ph,'\n')
         prefactor *= ph
 
         E = np.fft.fft2(prefactor)
@@ -79,7 +83,7 @@ class PSFObject(object):
 
     def get_E_in_detector(self,detector_thickness=5, zlen=10):
 
-        ''' Creates self.Ex, self.Ey, self.Ex -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
+        ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
         '''
 
@@ -88,7 +92,7 @@ class PSFObject(object):
         ulen = self.Optics.ulen
         uX = self.Optics.uX
         uY = self.Optics.uY
-
+        print(uX.shape, uY.shape)
         Ex = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
         Ey = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
         Ez = np.zeros((ulen,ulen, zlen),dtype=np.complex128)
@@ -96,16 +100,37 @@ class PSFObject(object):
         # May need to to use itertools instead of nested for loops 
         for index_ux in range(ulen):
             for index_uy in range(ulen):
-                for index_z in range(zlen):
-
+                    
                     ux = uX[index_ux]
                     uy = uY[index_uy]
 
-                    E = interference_filter.Transmitted_E(self.wavelength, ux, uy, zp=z_array[index_z])
+                    if ux**2 + uy**2 > 1:
+                        Ex[index_ux, index_uy, 0] = 0
+                        Ey[index_ux, index_uy, 0] = 0
+                        Ez[index_ux, index_uy, 0] = 0
+                        print(f'outside the unit circle u2 = {ux**2 + uy**2:.4f}\n')
+                    else:
+                        E = interference_filter.Transmitted_E(self.wavelength, ux, uy)
                 
-                    Ex[index_ux, index_uy, index_z] = E[0]
-                    Ey[index_ux, index_uy, index_z] = E[1]
-                    Ez[index_ux, index_uy, index_z] = E[2]
+                        Ex[index_ux, index_uy, 0] = E[0]
+                        Ey[index_ux, index_uy, 0] = E[1]
+                        Ez[index_ux, index_uy, 0] = E[2]
+
+                        print(f'inside the unit circle u2 = {ux**2 + uy**2:.4f}\n')
+
+                    print(f'Completed ux index ', index_ux, ' uy index ', index_uy, ' z index', f' and uX = {ux:.4f}, uY = {uy:.4f} and {ux**2 + uy**2:.4f}')
+
+        k0 = 2.*np.pi/self.wavelength # in microns^-1
+        n = nHgCdTe(self.wavelength)
+        kz = k0*np.sqrt(n**2 - uX[:,na]**2 - uY[na,:]**2 + 0j) # in microns^-1
+        if kz.imag[0,0]<0: kz = -kz # choose the root with positive imaginary part
+        for index_z in range(1, zlen):
+            z = z_array[index_z]
+            attenuation = np.exp(1j*kz*z)
+            Ex[:,:,index_z] = Ex[:,:,0]*attenuation
+            Ey[:,:,index_z] = Ey[:,:,0]*attenuation
+            Ez[:,:,index_z] = Ez[:,:,0]*attenuation
+            print(f'Completed z index ', index_z, ' at depth z = ', z, ' microns')
                 
         prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
 
