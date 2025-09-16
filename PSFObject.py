@@ -13,6 +13,7 @@ from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import MTF_SCA
+import time 
 
 
 
@@ -50,6 +51,13 @@ class PSFObject(object):
         self.dsX = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
         self.dsY = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
  
+        prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
+
+        x_minus = (-1)**np.array(range(self.ulen))#used to translate ftt to image center
+        ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
+        
+        self.prefactor = prefactor*ph
+
 
     def get_ulen(self, ps=20):
         '''
@@ -93,6 +101,9 @@ class PSFObject(object):
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
         The interference filter object created earlier is assumed to be the default interference filter.
         '''
+        start_time = time.time()
+        current_time = start_time
+        print('Starting get_E_in_detector at time = ',current_time,'\n')
 
         z_array = np.linspace(0, detector_thickness, zlen)
         dZ = z_array[1]-z_array[0]
@@ -111,28 +122,39 @@ class PSFObject(object):
         Ey = E[1]
         Ez = E[2]
 
-                
-        prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
 
-        x_minus = (-1)**np.array(range(ulen))#used to translate ftt to image center
-        ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
-        
-        prefactor *= ph
+        print('Time taken to get transmitted E field through filter = ',time.time()-current_time,'\n')
+        current_time = time.time()
+        Ex *= self.prefactor[:,:,na]
+        Ey *= self.prefactor[:,:, na]
+        Ez *= self.prefactor[:,:, na]
 
-        Ex *= prefactor[:,:,na]
-        Ey *= prefactor[:,:, na]
-        Ez *= prefactor[:,:, na]
-
-        
+        print('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
+        current_time = time.time()
 
         Ex_postage_stamp = np.fft.fft2(Ex, axes=(0,1))
         Ey_postage_stamp = np.fft.fft2(Ey, axes=(0,1))
         Ez_postage_stamp = np.fft.fft2(Ez, axes=(0,1))
         
+        print('Time taken to do fft = ',time.time()-current_time,'\n')
+        current_time = time.time()
+
         Intensity = (abs(Ex_postage_stamp)**2) + (abs(Ey_postage_stamp)**2) + (abs(Ez_postage_stamp)**2)
+
+        print('Time taken to calculate intensity = ',time.time()-current_time,'\n')
+        current_time = time.time()
+
         self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
 
+        print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
+        current_time = time.time()
+
         self.Intensity = np.trapz(Intensity, x=z_array, axis=2)
+        print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
+
+        print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
+
+
 
         
 

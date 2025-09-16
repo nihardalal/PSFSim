@@ -3,5 +3,5 @@ test.ipynb
 *.ipynb
 __pycache__
 *.swp
-./ipynb_checkpoints
+.ipynb_checkpoints
 stpsf-data/*
