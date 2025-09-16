@@ -3,7 +3,7 @@ import numpy as np
 
 def MTF(x1, y1, x2, y2):
     """
-    Charge diffusion modulation transfer function as a function of Analysis coordinates in microns.
+    Charge diffusion modulation transfer function as a function of Analysis coordinates in mm.
     The MTF is calculated using a three-gaussian approximation of the charge diffusion in the SCA, 
     where the parameters are derived from the charge diffusion model
     described in Emily's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632
@@ -12,7 +12,7 @@ def MTF(x1, y1, x2, y2):
 
     deltax = x1 - x2
     deltay = y1 - y2
-    pix = 10  # pixel size in microns
+    pix = 0.01  # pixel size in mm
     sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
     w1 = 0.17519
     w2 = 0.53146
@@ -36,11 +36,11 @@ def MTF_SCA(x, y, npix_boundary=1):
     Modulation Transfer Function (MTF) for diffusion from point in SCA with Analysis coordinates (x, y) to pixel coordinates given by integer pairs (i, j). 0 <= i,j < 4088. Reflection boundary conditions are applied at the edges of the SCA.
     The MTF is computed for all pixels in the SCA, and the result is returned as a 2D array of shape (4088, 4088).
     """
-    pix = 10  # pixel size in microns
+    pix = 0.01  # pixel size in mm
     nside = 4088 # number of active pixels per side in the SCA (Should this be 4088 or 4096?)
-    side_length = nside * pix  # Length of the SCA in microns
-    xp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # x coordinates of pixel centers in microns
-    yp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # y coordinates of pixel centers in microns
+    side_length = nside * pix  # Length of the SCA in mm
+    xp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # x coordinates of pixel centers in mm
+    yp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # y coordinates of pixel centers in mm
     Xp, Yp = np.meshgrid(xp_array, yp_array, indexing='ij')  # Create a meshgrid of pixel centers
     MTF_SCA_array = np.zeros((nside, nside))
 
