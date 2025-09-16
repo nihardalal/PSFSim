@@ -76,34 +76,30 @@ class PSFObject(object):
         """
 
 
-        print('pathDifference = ',self.Optics.pathDifference,'\n')
-        print(self.Optics.pathDifference.shape)
-        print(self.Optics.pupilMask.shape)
-        prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
+        #prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
         
-        x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
-        ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
-        print('ph = ',ph,'\n')
-        prefactor *= ph
+       #x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
+        #ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
+        #prefactor *= ph
 
-        E = np.fft.fft2(prefactor)
+        E = np.fft.fft2(self.prefactor)
         self.Optical_PSF = abs(E)**2
         self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
+        self.Optical_PSF *= np.sum(self.dsX*self.dsY)
 
 
 
         
 
 
-    def get_E_in_detector(self,filter, detector_thickness=5, zlen=50):
+    def get_E_in_detector(self,filter, detector_thickness=2, zlen=20):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
         The interference filter object created earlier is assumed to be the default interference filter.
         '''
-        start_time = time.time()
-        current_time = start_time
-        print('Starting get_E_in_detector at time = ',current_time,'\n')
+       
+        #print('Starting get_E_in_detector at time = ',current_time,'\n')
 
         z_array = np.linspace(0, detector_thickness, zlen)
         dZ = z_array[1]-z_array[0]
@@ -123,36 +119,37 @@ class PSFObject(object):
         Ez = E[2]
 
 
-        print('Time taken to get transmitted E field through filter = ',time.time()-current_time,'\n')
-        current_time = time.time()
+        #print('Time taken to get transmitted E field through filter = ',time.time()-current_time,'\n')
+        
         Ex *= self.prefactor[:,:,na]
         Ey *= self.prefactor[:,:, na]
         Ez *= self.prefactor[:,:, na]
 
-        print('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
-        current_time = time.time()
+        #rint('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
+      
 
         Ex_postage_stamp = np.fft.fft2(Ex, axes=(0,1))
         Ey_postage_stamp = np.fft.fft2(Ey, axes=(0,1))
         Ez_postage_stamp = np.fft.fft2(Ez, axes=(0,1))
         
-        print('Time taken to do fft = ',time.time()-current_time,'\n')
-        current_time = time.time()
+        #print('Time taken to do fft = ',time.time()-current_time,'\n')
+        
 
         Intensity = (abs(Ex_postage_stamp)**2) + (abs(Ey_postage_stamp)**2) + (abs(Ez_postage_stamp)**2)
 
-        print('Time taken to calculate intensity = ',time.time()-current_time,'\n')
-        current_time = time.time()
+        #print('Time taken to calculate intensity = ',time.time()-current_time,'\n')
+        
 
         self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
+        self.Filtered_PSF *= np.sum(self.dsX*self.dsY)
 
-        print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
-        current_time = time.time()
+        #print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
+        
 
         self.Intensity = np.trapz(Intensity, x=z_array, axis=2)
-        print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
+        #print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
 
-        print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
+        #print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
 
 
 
@@ -179,10 +176,12 @@ class PSFObject(object):
 
         for index_sx in range(self.Optics.ulen):
             for index_sy in range(self.Optics.ulen):
-                sx = self.sX[index_sx]
-                sy = self.sY[index_sy]
+                sx = self.sX[index_sx, 0]
+                sy = self.sY[0, index_sy]
 
                 detector_image += MTF_SCA(XAnalysis+sx, YAnalysis+sy, npix_boundary=self.npix_boundary) * self.Intensity[index_sx, index_sy] * self.dsX * self.dsY
+
+                print(f'Finished computation for sx no. {index_sx:d} and sy no. {index_sy:d}')
 
         self.detector_image = detector_image
 

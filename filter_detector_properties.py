@@ -35,7 +35,6 @@ class filter_detector(object):
         except:
             shape=(1,1)
         mask = (ux**2 + uy**2) <= 1.0
-        print(mask)
         
         u = np.sqrt((ux**2)+(uy**2))
 
@@ -61,7 +60,6 @@ class filter_detector(object):
         # Characteristic matrix of layer 1 for the TE wave 
         M_TE_1 = np.zeros(shape+(2,2),dtype=np.complex128)
 
-        print(M_TE_1.shape, M_TE_1[mask])
         M_TE_1[mask,0,0] = np.cos(kz1[mask]*self.t1)
         M_TE_1[mask, 1,1] = np.cos(kz1[mask]*self.t1)
         M_TE_1[mask,0,1] = -(k0*self.mu1/kz1[mask])*1j*np.sin(kz1[mask]*self.t1)
@@ -282,14 +280,14 @@ class filter_detector(object):
         E_FPA_y[mask] = np.sum(local_to_FPA[mask, 1,:]*E_local[mask, :], axis =-1)
         E_FPA_z[mask] = np.sum(local_to_FPA[mask, 2,:]*E_local[mask, :], axis =-1)
 
-        print('Calculation of E_FPA done in ', time.time() - start_time, ' seconds')
+        #print('Calculation of E_FPA done in ', time.time() - start_time, ' seconds')
         phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
         #log_phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
         #np.multiply(1j*kz[mask, na], self.sgn*zp[na, :], out=log_phase[mask, :])
         #np.exp(log_phase, out=phase)
         phase[mask, :] = np.exp((1j*kz[mask, na]*self.sgn*zp[na, :]))
 
-        print('Calculation of phase done in ', time.time() - start_time, ' seconds')
+        #print('Calculation of phase done in ', time.time() - start_time, ' seconds')
         Ex = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ey = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ez = np.empty(ux.shape + zp.shape,dtype=np.complex128)
@@ -298,7 +296,7 @@ class filter_detector(object):
         np.multiply(E_FPA_y[:,:,na], phase, out=Ey)
         np.multiply(E_FPA_z[:,:,na], phase, out=Ez)
 
-        print('Total calculation done in ', time.time() - start_time, ' seconds')
+        #print('Total calculation done in ', time.time() - start_time, ' seconds')
 
         return (Ex, Ey, Ez)
 
