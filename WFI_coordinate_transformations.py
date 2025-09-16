@@ -42,8 +42,8 @@ def fromSCAToFPA(SCAnum, SCAx, SCAy):
     sca_orient = np.array([-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1]).astype(np.int16)
     if np.amin(SCAnum)<1 or np.amax(SCAnum)>18:
          raise ValueError('Invalid SCA Number')
-    return (xfpa[scIndex]+ pixsize*(SCAx-(nside-1)/2.)*sca_orient[scIndex],
-            yfpa[scIndex]+ pixsize*(SCAy-(nside-1)/2.)*sca_orient[scIndex], )
+    return (xfpa[scIndex]+ (SCAx)*sca_orient[scIndex],
+            yfpa[scIndex]+ (SCAy)*sca_orient[scIndex], )
 
 def fromSCAtoAnalysis(SCAnum, SCAx, SCAy):
     """
