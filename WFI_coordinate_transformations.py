@@ -30,7 +30,7 @@ def fromFPAtoAngle(FPApos, wavelength = 0.48):
 
 def fromSCAToFPA(SCAnum, SCAx, SCAy):
     """
-    Coordinate transformation converting SCA coordinates (in pixels) to FPA coordinates (in mm)
+    Coordinate transformation converting SCA coordinates (in mm) to FPA coordinates (in mm)
     """
     xfpa = np.array([-22.14, -22.29, -22.44, -66.42, -66.92, -67.42,-110.70,-111.48,-112.64,
                      22.14,  22.29,  22.44,  66.42,  66.92,  67.42, 110.70, 111.48, 112.64])
