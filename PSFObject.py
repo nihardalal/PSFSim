@@ -14,7 +14,6 @@ from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import MTF_SCA
 
-interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0, t3=1./3,sgn=1)
 
 
 
@@ -29,6 +28,7 @@ class PSFObject(object):
         self.wavelength = wavelength
         self.npix_boundary = npix_boundary
 
+        self.interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0, t3=1./3,sgn=1)
         #The following sets the ulen of the GeometricOptics object based on the postage_stamp_size if use_postage_stamp_size is True. 
         if use_postage_stamp_size:
             self.ulen = int(self.get_ulen(ps=postage_stamp_size))+1
@@ -87,7 +87,7 @@ class PSFObject(object):
         
 
 
-    def get_E_in_detector(self,detector_thickness=5, zlen=50, filter=interference_filter):
+    def get_E_in_detector(self,filter, detector_thickness=5, zlen=50):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
@@ -106,7 +106,7 @@ class PSFObject(object):
         Ez = np.zeros((ulen,ulen),dtype=np.complex128)
 
 
-        E = filter.Transmitted_E(self.wavelength, uX, uY)
+        E = filter.Transmitted_E(self.wavelength, uX, uY, z_array)
         Ex = E[0]
         Ey = E[1]
         Ez = E[2]
