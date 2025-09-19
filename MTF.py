@@ -44,6 +44,7 @@ def MTF_SCA(x, y, npix_boundary=1):
     Xp, Yp = np.meshgrid(xp_array, yp_array, indexing='ij')  # Create a meshgrid of pixel centers
     MTF_SCA_array = np.zeros((nside, nside))
 
+
     if not max(abs(x), abs(y)) < side_length/2:
         print('point is outside the SCA')
         return MTF_SCA_array

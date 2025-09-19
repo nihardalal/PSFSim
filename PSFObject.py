@@ -14,6 +14,7 @@ from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import MTF_SCA
 import time 
+from numba import njit, prange
 
 
 
@@ -158,7 +159,7 @@ class PSFObject(object):
 
         return
 
-
+    @njit(parallel=True)
     def get_detector_image(self):
         """
         Returns the 4088x4088 detector image as a 2D array of intensity values.
@@ -169,21 +170,21 @@ class PSFObject(object):
 
 
         # Compute the detector image by summing the contributions from all points in the postage stamp
-        detector_image = np.zeros((4088, 4088), dtype=np.float64)
+        detector_image = np.zeros((4088, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
 
         XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
 
 
-        for index_sx in range(self.Optics.ulen):
-            for index_sy in range(self.Optics.ulen):
+        for index_sx in prange(self.Optics.ulen):
+            for index_sy in prange(self.Optics.ulen):
                 sx = self.sX[index_sx, 0]
                 sy = self.sY[0, index_sy]
 
-                detector_image += MTF_SCA(XAnalysis+sx, YAnalysis+sy, npix_boundary=self.npix_boundary) * self.Intensity[index_sx, index_sy] * self.dsX * self.dsY
+                detector_image[index_sx, index_sy] = MTF_SCA(XAnalysis+sx, YAnalysis+sy, npix_boundary=self.npix_boundary) * self.Intensity[index_sx, index_sy] * self.dsX * self.dsY
 
-                print(f'Finished computation for sx no. {index_sx:d} and sy no. {index_sy:d}')
+                print(f'Finished computation for sx no.',index_sx,' and sy no. ',index_sy)
 
-        self.detector_image = detector_image
+        self.detector_image = np.sum(detector_image,axis=(2,3))
 
 
         
