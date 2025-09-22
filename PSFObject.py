@@ -12,7 +12,7 @@ from filter_detector_properties import filter_detector
 from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
-from MTF import MTF_SCA
+from MTF import *
 import time 
 from numba import njit, prange
 
@@ -21,7 +21,7 @@ from numba import njit, prange
 
 class PSFObject(object):
 
-    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=20, npix_boundary=1, use_postage_stamp_size=True):
+    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=True):
 
         '''
         Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength (and possibly others) 
@@ -31,6 +31,7 @@ class PSFObject(object):
         self.npix_boundary = npix_boundary
 
         self.interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0, t3=1./3,sgn=1)
+        self.postage_stamp_size = postage_stamp_size
         #The following sets the ulen of the GeometricOptics object based on the postage_stamp_size if use_postage_stamp_size is True. 
         if use_postage_stamp_size:
             self.ulen = int(self.get_ulen(ps=postage_stamp_size))+1
@@ -86,7 +87,7 @@ class PSFObject(object):
         E = np.fft.fft2(self.prefactor)
         self.Optical_PSF = abs(E)**2
         self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
-        self.Optical_PSF *= np.sum(self.dsX*self.dsY)
+        #self.Optical_PSF *= np.sum(self.dsX*self.dsY)
 
 
 
@@ -129,9 +130,9 @@ class PSFObject(object):
         #rint('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
       
 
-        Ex_postage_stamp = np.fft.fft2(Ex, axes=(0,1))
-        Ey_postage_stamp = np.fft.fft2(Ey, axes=(0,1))
-        Ez_postage_stamp = np.fft.fft2(Ez, axes=(0,1))
+        Ex_postage_stamp = np.fft.ifft2(Ex, axes=(0,1))
+        Ey_postage_stamp = np.fft.ifft2(Ey, axes=(0,1))
+        Ez_postage_stamp = np.fft.ifft2(Ez, axes=(0,1))
         
         #print('Time taken to do fft = ',time.time()-current_time,'\n')
         
@@ -142,12 +143,13 @@ class PSFObject(object):
         
 
         self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
-        self.Filtered_PSF *= np.sum(self.dsX*self.dsY)
+        #self.Filtered_PSF *= np.sum(self.dsX*self.dsY)
 
         #print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
         
-
-        self.Intensity = np.trapz(Intensity, x=z_array, axis=2)
+        self.Intensity = Intensity
+        self.Intensity_integrated = np.trapz(Intensity, x=z_array, axis=2)
+        
         #print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
 
         #print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
@@ -159,32 +161,71 @@ class PSFObject(object):
 
         return
 
-    @njit(parallel=True)
     def get_detector_image(self):
         """
-        Returns the 4088x4088 detector image as a 2D array of intensity values.
+        Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.
         """
 
-        if not hasattr(self, 'Intensity'):
-            self.get_E_in_detector()
+        #if not hasattr(self, 'Intensity'):
+        #    self.get_E_in_detector()
 
-
+        pix = 10
         # Compute the detector image by summing the contributions from all points in the postage stamp
-        detector_image = np.zeros((4088, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+        #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
 
         XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        
+        imageX = XAnalysis + self.sX   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+        imageY = YAnalysis + self.sY
+
+        Xd = np.floor(XAnalysis//pix)
+        Yd = np.floor(YAnalysis//pix)
+
+        xd_array = Xd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+        yd_array = Yd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+
+        detector_image = np.zeros((int(self.postage_stamp_size),int(self.postage_stamp_size)), dtype=np.float64)
+
+        for index_xd in range(int(self.postage_stamp_size)):
+            for index_yd in range(int(self.postage_stamp_size)):
+                
+                detector_image[index_xd, index_yd] = MTF_image(xd_array[index_xd], yd_array[index_yd], imageX, imageY, self.Intensity_integrated, npix_boundary=2)
 
 
-        for index_sx in prange(self.Optics.ulen):
-            for index_sy in prange(self.Optics.ulen):
-                sx = self.sX[index_sx, 0]
-                sy = self.sY[0, index_sy]
+        self.detector_image = detector_image
 
-                detector_image[index_sx, index_sy] = MTF_SCA(XAnalysis+sx, YAnalysis+sy, npix_boundary=self.npix_boundary) * self.Intensity[index_sx, index_sy] * self.dsX * self.dsY
+    def get_detector_image_2(self):
+       """
+       Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.
+       """
 
-                print(f'Finished computation for sx no.',index_sx,' and sy no. ',index_sy)
+       #if not hasattr(self, 'Intensity'):
+       #    self.get_E_in_detector()
 
-        self.detector_image = np.sum(detector_image,axis=(2,3))
+       pix = 10
+       # Compute the detector image by summing the contributions from all points in the postage stamp
+       #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+
+       XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+       
+       imageX = XAnalysis + self.sX   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+       imageY = YAnalysis + self.sY
+
+       Xd = np.floor(XAnalysis//pix)
+       Yd = np.floor(YAnalysis//pix)
+
+       xd_array = Xd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+       yd_array = Yd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+
+       psX, psY = np.meshgrid(xd_array, yd_array, indexing='ij')
+       
+       detector_image = np.zeros((int(self.postage_stamp_size),int(self.postage_stamp_size)), dtype=np.float64)
+
+
+       detector_image = MTF_image_vec(psX, psY, imageX, imageY, self.Optical_PSF, npix_boundary=2)
+
+
+       self.detector_image_vec = detector_image 
 
 
         

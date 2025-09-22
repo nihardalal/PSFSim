@@ -26,7 +26,8 @@ class filter_detector(object):
 
 
     def characteristic_matrix(self,ll,ux,uy):
-        
+        print('Calculating characteristic matrices......')
+        start_time = time.time() 
     #   returns characteristic matrix of the interference filter for (vacuum) wavelength ll and     angle of incidence given by sin_theta = (ux**2 + uy**2)**0.5
 
     #    Note that this function returns a pair of 2x2 matrices which are respectively the chara    cteristic matrices for the TE and TM modes of the incident wave
@@ -35,7 +36,7 @@ class filter_detector(object):
         except:
             shape=(1,1)
         mask = (ux**2 + uy**2) <= 1.0
-        
+        #mask = np.abs(ux) + np.abs(uy) <= 1.0
         u = np.sqrt((ux**2)+(uy**2))
 
         
@@ -110,13 +111,18 @@ class filter_detector(object):
         M_TE_net = np.matmul(M_TE_1,np.matmul(M_TE_2,M_TE_3))
         M_TM_net = np.matmul(M_TM_1,np.matmul(M_TM_2,M_TM_3))
 
+        end_time = time.time()
+        print(f'Finished computing characteristic matrices in {end_time-start_time:.3f}')
+
         return {'TE':M_TE_net, 'TM':M_TM_net}
 
 
     def local_to_FPA_rotation(self, ux, uy):
-        
+        print('Computing local to FPA rotation.......')
+        start_time = time.time()
         u = np.sqrt((ux**2)+(uy**2))
         mask = (u <= 1)
+        #mask = np.abs(ux) + np.abs(uy) <= 1
         try: 
             shape = ux.shape
         except:
@@ -129,6 +135,9 @@ class filter_detector(object):
         RT[mask & (u != 0), 1,0] = (-(ux[mask & (u != 0)]*self.sgn/u[mask & (u != 0)]))
         RT[mask & (u != 0),1,1] = (uy[mask & (u != 0)]/u[mask & (u != 0)])
         RT[mask & (u != 0),2,2] = self.sgn
+
+        end_time = time.time()
+        print(f'Finished computing local to FPA rotation in {end_time-start_time:.3f}')
         
         return RT
 
@@ -143,6 +152,8 @@ class filter_detector(object):
         except:
             shape=(1,1)
         mask = (u <= 1)
+        #mask = np.abs(ux) + np.abs(uy) <= 1
+
         A_TE = np.zeros(shape, dtype=np.complex128)
         A_TM = np.zeros(shape, dtype=np.complex128)
 
@@ -163,10 +174,14 @@ class filter_detector(object):
         return {'TE':A_TE, 'TM':A_TM}   
  
     def unpolarised_mode_decomposition(self, ux, uy, E0=1):
+
+        print('Computing polarisation mode decomposition for unpolarised incident E field.....')
+        start_time = time.time()
     
     # Function to obtain TE and TM mode amplitudes for unpolarised incident wave with magnitude of electric field E0.
         u = np.sqrt((ux**2)+(uy**2))
         mask = (u <= 1)
+        #mask = np.abs(ux) + np.abs(uy) <= 1.0
         try:
             shape = ux.shape
         except:
@@ -178,7 +193,8 @@ class filter_detector(object):
         A_TE[mask] = (1./np.sqrt(2))*E0
         A_TM[mask] = -(1./np.sqrt(2))*E0
         
-        
+        end_time = time.time()
+        print(f'Finished computing polarisation mode decomposition in {end_time-start_time:.3f}')
         return {'TE':A_TE, 'TM':A_TM}   
 
 
@@ -189,8 +205,11 @@ class filter_detector(object):
         """
         Returns Transmission coefficients of TE and TM modes coming with incident direction (ux, uy, sqrt(1-u^2))
         """
+        print('Computing transmission of E field through the interference filter....')
+        start_time = time.time()
         u = np.sqrt((ux**2)+(uy**2))
         mask = (u <= 1)
+        #mask = np.abs(ux) + np.abs(uy) <= 1.0
         try:
             shape = ux.shape
         except:
@@ -226,7 +245,8 @@ class filter_detector(object):
         Transmission_TE[mask] = 2*cos_theta[mask]/((cos_theta[mask]*(M_TE[mask,0,0]+((kz[mask]/k0/self.muHgCdTe)*M_TE[mask,0,1])))+(M_TE[mask,1,0]+((kz[mask]/k0/self.muHgCdTe)*M_TE[mask,1,1])))
 
         Transmission_TM[mask] = 2*cos_theta[mask]/((cos_theta[mask]*(M_TM[mask,0,0]+((kz[mask]/k0/eHgCdTe)*M_TM[mask,0,1])))+(M_TM[mask,1,0]+((kz[mask]/k0/eHgCdTe)*M_TM[mask,1,1])))
-
+        end_time = time.time()
+        print(f'Computed transmission in {end_time-start_time:.3f}')
         return {'TE':Transmission_TE, 'TM':Transmission_TM}
 
     def Transmitted_E(self, ll, ux, uy, zp, A_TE=1 ,A_TM=1, use_nHgCdTe=True):        
@@ -238,6 +258,7 @@ class filter_detector(object):
         start_time = time.time()
         u = np.sqrt((ux**2)+(uy**2))
         mask = (u <= 1)
+        #mask = np.abs(ux) + np.abs(uy) <= 1.0
         shape = ux.shape
 
         if use_nHgCdTe:
@@ -296,7 +317,7 @@ class filter_detector(object):
         np.multiply(E_FPA_y[:,:,na], phase, out=Ey)
         np.multiply(E_FPA_z[:,:,na], phase, out=Ez)
 
-        #print('Total calculation done in ', time.time() - start_time, ' seconds')
+        print('Total calculation done in ', time.time() - start_time, ' seconds')
 
         return (Ex, Ey, Ez)
 

@@ -50,9 +50,9 @@ def fromSCAtoAnalysis(SCAnum, SCAx, SCAy):
     Coordinate transformation converting SCA coordinates (in mm) to Analysis coordinates (in microns). The Analysis coordinates system is defined to be the FPA coordinate system with origin shifted to the center of the SCA
     """
     scIndex = SCAnum-1
-    pixsize = 0.01 # microns
+    pixsize = 10 # microns
     nside = 4088
     sca_orient = np.array([-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1,-1,-1,1]).astype(np.int16)
     if np.amin(SCAnum)<1 or np.amax(SCAnum)>18:
          raise ValueError('Invalid SCA Number')
-    return (SCAx*sca_orient[scIndex], SCAy*sca_orient[scIndex])
+    return (SCAx*sca_orient[scIndex]*1.e3, SCAy*sca_orient[scIndex]*1.e3)
