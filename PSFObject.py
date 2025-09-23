@@ -21,10 +21,11 @@ def parallel_MTF_image(args):
     xd, yd, imageX, imageY, Intensity_integrated, npix_boundary = args
     return MTF_image(xd, yd, imageX, imageY, Intensity_integrated, npix_boundary)
 
+interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0, t3=1./3,sgn=1)
 
 class PSFObject(object):
 
-    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=True):
+    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=True, ray_trace=False):
 
         '''
         Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength (and possibly others) 
@@ -41,7 +42,7 @@ class PSFObject(object):
         else:
             self.ulen = 2048 # default value
 
-        self.Optics = GeometricOptics(SCAnum, SCAx, SCAy, wavelength, self.ulen)
+        self.Optics = GeometricOptics(SCAnum, SCAx, SCAy, wavelength, self.ulen, ray_trace=ray_trace)
         self.uX, self.uY = np.meshgrid(self.Optics.uX, self.Optics.uY, indexing='ij')
         self.u = np.sqrt(self.uX**2 + self.uY**2)
         self.mask = (self.u <= 1)
@@ -97,7 +98,7 @@ class PSFObject(object):
         
 
 
-    def get_E_in_detector(self,filter = self.interference_filter, detector_thickness=2, zlen=20):
+    def get_E_in_detector(self,filter = interference_filter, detector_thickness=2, zlen=20, nworkers=8):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.

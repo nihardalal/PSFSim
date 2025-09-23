@@ -27,7 +27,7 @@ def compute_jacobian(u, dx=1.0, dy=1.0):
     return jacobian
 
 class GeometricOptics:
-    def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048):
+    def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048, ray_trace=False):
         #sca position in mm
         #wavelength in micrometers
 
@@ -46,7 +46,7 @@ class GeometricOptics:
         self.umin = -1
         self.umax = 1
 
-        self.pupilSampling = 512
+        self.pupilSampling = 2048
 
         self.uX = np.linspace(self.umin, self.umax, self.ulen)
         self.uY = np.linspace(self.umin, self.umax, self.ulen)
@@ -61,7 +61,7 @@ class GeometricOptics:
         self.determinant = self.computeDeterminant()
 
         # Obtain pupil Mask and path difference map
-        self.pupilMask = self.loadPupilMask(use_ray_trace=True)
+        self.pupilMask = self.loadPupilMask(use_ray_trace=ray_trace)
 
 
         self.pathDifference = self.pathDiff()
