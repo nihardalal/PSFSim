@@ -306,9 +306,10 @@ class filter_detector(object):
         #log_phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
         #np.multiply(1j*kz[mask, na], self.sgn*zp[na, :], out=log_phase[mask, :])
         #np.exp(log_phase, out=phase)
+        start_time = time.time()
         phase[mask, :] = np.exp((1j*kz[mask, na]*self.sgn*zp[na, :]))
 
-        #print('Calculation of phase done in ', time.time() - start_time, ' seconds')
+        print('Calculation of phase done in ', time.time() - start_time, ' seconds')
         Ex = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ey = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ez = np.empty(ux.shape + zp.shape,dtype=np.complex128)

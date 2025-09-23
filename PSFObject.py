@@ -6,8 +6,8 @@ from sklearn import linear_model
 from astropy.io import fits
 from scipy.linalg import expm
 from scipy.interpolate import griddata
-from scipy.fft import ifftn
-
+from scipy.fft import ifftn, ifft2
+from concurrent.futures import ProcessPoolExecutor
 from filter_detector_properties import filter_detector
 from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
@@ -15,8 +15,11 @@ import WFI_coordinate_transformations as WFI
 from MTF import *
 import time 
 #from numba import njit, prange
+import os
 
-
+def parallel_MTF_image(args):
+    xd, yd, imageX, imageY, Intensity_integrated, npix_boundary = args
+    return MTF_image(xd, yd, imageX, imageY, Intensity_integrated, npix_boundary)
 
 
 class PSFObject(object):
@@ -84,7 +87,7 @@ class PSFObject(object):
         #ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
         #prefactor *= ph
 
-        E = np.fft.fft2(self.prefactor)
+        E = ifft2(self.prefactor)
         self.Optical_PSF = abs(E)**2
         self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
         #self.Optical_PSF *= np.sum(self.dsX*self.dsY)
@@ -128,13 +131,16 @@ class PSFObject(object):
         Ez *= self.prefactor[:,:, na]
 
         #rint('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
-      
+        start_time = time.time() 
 
-        Ex_postage_stamp = np.fft.ifft2(Ex, axes=(0,1))
-        Ey_postage_stamp = np.fft.ifft2(Ey, axes=(0,1))
-        Ez_postage_stamp = np.fft.ifft2(Ez, axes=(0,1))
+        Ex_postage_stamp = ifft2(Ex, axes=(0,1),workers=nworkers)
+        Ey_postage_stamp = ifft2(Ey, axes=(0,1),workers=nworkers)
+        Ez_postage_stamp = ifft2(Ez, axes=(0,1),workers=nworkers)
+        #Ex_postage_stamp = np.fft.ifft2(Ex, axes=(0,1))
+        #Ey_postage_stamp = np.fft.ifft2(Ey, axes=(0,1))
+        #Ez_postage_stamp = np.fft.ifft2(Ez, axes=(0,1))
         
-        #print('Time taken to do fft = ',time.time()-current_time,'\n')
+        print('Time taken to do ifft = ',time.time()-start_time,'\n')
         
 
         Intensity = (abs(Ex_postage_stamp)**2) + (abs(Ey_postage_stamp)**2) + (abs(Ez_postage_stamp)**2)
@@ -148,9 +154,10 @@ class PSFObject(object):
         #print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
         
         self.Intensity = Intensity
+        start_time = time.time()
         self.Intensity_integrated = np.trapz(Intensity, x=z_array, axis=2)
         
-        #print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
+        print('Time taken to integrate over depth = ',time.time()-start_time,'\n')
 
         #print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
 
@@ -161,7 +168,7 @@ class PSFObject(object):
 
         return
 
-    def get_detector_image(self):
+    def get_detector_image(self, nworkers=8, chunk_size=1):
         """
         Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.
         """
@@ -184,13 +191,16 @@ class PSFObject(object):
         xd_array = Xd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
         yd_array = Yd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
 
-        detector_image = np.zeros((int(self.postage_stamp_size),int(self.postage_stamp_size)), dtype=np.float64)
+        shape = (int(self.postage_stamp_size), int(self.postage_stamp_size))
+        detector_image = np.zeros(shape, dtype=np.float64)
 
-        for index_xd in range(int(self.postage_stamp_size)):
-            for index_yd in range(int(self.postage_stamp_size)):
-                
-                detector_image[index_xd, index_yd] = MTF_image(xd_array[index_xd], yd_array[index_yd], imageX, imageY, self.Intensity_integrated, npix_boundary=2)
+        tasks = [(xd_array[index_xd], yd_array[index_yd], imageX, imageY, self.Intensity_integrated, self.npix_boundary) for index_xd in range(self.postage_stamp_size) for index_yd in range(self.postage_stamp_size)]
 
+
+        with ProcessPoolExecutor(max_workers=nworkers) as executor:
+            results = list(executor.map(parallel_MTF_image, tasks, chunksize=chunk_size))
+
+        detector_image = np.array(results).reshape(shape)
 
         self.detector_image = detector_image
 
