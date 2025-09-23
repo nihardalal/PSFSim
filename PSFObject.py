@@ -14,7 +14,7 @@ from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import *
 import time 
-from numba import njit, prange
+#from numba import njit, prange
 
 
 
@@ -94,7 +94,7 @@ class PSFObject(object):
         
 
 
-    def get_E_in_detector(self,filter, detector_thickness=2, zlen=20):
+    def get_E_in_detector(self,filter = self.interference_filter, detector_thickness=2, zlen=20):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
