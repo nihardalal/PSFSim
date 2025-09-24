@@ -173,7 +173,7 @@ class filter_detector(object):
         
         return {'TE':A_TE, 'TM':A_TM}   
  
-    def unpolarised_mode_decomposition(self, ux, uy, E0=1):
+    def unpolarised_mode_decomposition(self, ux, uy, E0=1.e10):
 
         print('Computing polarisation mode decomposition for unpolarised incident E field.....')
         start_time = time.time()
@@ -249,7 +249,7 @@ class filter_detector(object):
         print(f'Computed transmission in {end_time-start_time:.3f}')
         return {'TE':Transmission_TE, 'TM':Transmission_TM}
 
-    def Transmitted_E(self, ll, ux, uy, zp, A_TE=1 ,A_TM=1, use_nHgCdTe=True):        
+    def Transmitted_E(self, ll, ux, uy, zp, A_TE=1.e10 ,A_TM=1.e10, use_nHgCdTe=True):        
  
         ''' Returns the transmitted Electric field components in terms of the incident amplitudes in the TE and TM polarisation modes at positions xp, yp, zp w.r.t the point of incidence (i.e. the pixel centre on the SCA).
 

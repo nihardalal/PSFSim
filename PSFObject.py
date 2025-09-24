@@ -185,14 +185,18 @@ class PSFObject(object):
         
         imageX = XAnalysis + self.sX   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
         imageY = YAnalysis + self.sY
+        self.imageX = imageX
+        self.imageY = imageY
 
-        Xd = np.floor(XAnalysis//pix)
-        Yd = np.floor(YAnalysis//pix)
-
+        Xd = np.floor(XAnalysis//pix)*pix
+        Yd = np.floor(YAnalysis//pix)*pix
         xd_array = Xd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
         yd_array = Yd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
 
+        xD, yD = np.meshgrid(xd_array, yd_array, indexing='ij')
+        mask = (np.maximum(np.abs(xD), np.abs(yD)) <= 20440).astype(np.float64) # Mask to zero out values outside the SCA 
         shape = (int(self.postage_stamp_size), int(self.postage_stamp_size))
+
         detector_image = np.zeros(shape, dtype=np.float64)
 
         tasks = [(xd_array[index_xd], yd_array[index_yd], imageX, imageY, self.Intensity_integrated, self.npix_boundary) for index_xd in range(self.postage_stamp_size) for index_yd in range(self.postage_stamp_size)]
@@ -200,7 +204,8 @@ class PSFObject(object):
 
         with ProcessPoolExecutor(max_workers=nworkers) as executor:
             results = list(executor.map(parallel_MTF_image, tasks, chunksize=chunk_size))
-
+        
         detector_image = np.array(results).reshape(shape)
-
+         # Mask out values outside the SCA
+        detector_image *= mask
         self.detector_image = detector_image
