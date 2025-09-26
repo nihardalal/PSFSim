@@ -104,9 +104,10 @@ class PSFObject(object):
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
         The interference filter object created earlier is assumed to be the default interference filter.
         '''
-       
+        start_time = time.time()
+        current_time = time.time()
         #print('Starting get_E_in_detector at time = ',current_time,'\n')
-
+        first_time = time.time()
         z_array = np.linspace(0, detector_thickness, zlen)
         dZ = z_array[1]-z_array[0]
         ulen = self.Optics.ulen
@@ -114,9 +115,6 @@ class PSFObject(object):
         uY = self.Optics.uY
         uX, uY = np.meshgrid(uX, uY, indexing='ij')
 
-        Ex = np.zeros((ulen,ulen),dtype=np.complex128)
-        Ey = np.zeros((ulen,ulen),dtype=np.complex128)
-        Ez = np.zeros((ulen,ulen),dtype=np.complex128)
 
 
         E = filter.Transmitted_E(self.wavelength, uX, uY, z_array)
@@ -124,15 +122,17 @@ class PSFObject(object):
         Ey = E[1]
         Ez = E[2]
 
-
-        #print('Time taken to get transmitted E field through filter = ',time.time()-current_time,'\n')
+        end_time = time.time()
+        print('Time taken to get transmitted E field through filter = ',end_time-current_time,'\n')
+        current_time = time.time()
         
         Ex *= self.prefactor[:,:,na]
         Ey *= self.prefactor[:,:, na]
         Ez *= self.prefactor[:,:, na]
 
-        #rint('Time taken to multiply by prefactor = ',time.time()-current_time,'\n')
-        start_time = time.time() 
+        end_time = time.time()
+        print('Time taken to multiply by prefactor = ',end_time-current_time,'\n')
+        current_time = time.time() 
 
         Ex_postage_stamp = ifft2(Ex, axes=(0,1),workers=nworkers)
         Ey_postage_stamp = ifft2(Ey, axes=(0,1),workers=nworkers)
@@ -140,27 +140,27 @@ class PSFObject(object):
         #Ex_postage_stamp = np.fft.ifft2(Ex, axes=(0,1))
         #Ey_postage_stamp = np.fft.ifft2(Ey, axes=(0,1))
         #Ez_postage_stamp = np.fft.ifft2(Ez, axes=(0,1))
+        end_time = time.time()
+        print('Time taken to do ifft = ',end_time-current_time,'\n')
         
-        print('Time taken to do ifft = ',time.time()-start_time,'\n')
-        
-
+        current_time = time.time()
         Intensity = (abs(Ex_postage_stamp)**2) + (abs(Ey_postage_stamp)**2) + (abs(Ez_postage_stamp)**2)
 
-        #print('Time taken to calculate intensity = ',time.time()-current_time,'\n')
+        print('Time taken to compute Intensity by squaring the E field = ', time.time()-current_time,'\n')
+        current_time=time.time()
         
 
         self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
         #self.Filtered_PSF *= np.sum(self.dsX*self.dsY)
-
-        #print('Time taken to calculate Filtered PSF = ',time.time()-current_time,'\n')
-        
+        end_time = time.time()
+        print('Time taken to calculate Filtered PSF = ',end_time-current_time,'\n')
+        current_time=time.time()
         self.Intensity = Intensity
-        start_time = time.time()
         self.Intensity_integrated = np.trapz(Intensity, x=z_array, axis=2)
-        
-        print('Time taken to integrate over depth = ',time.time()-start_time,'\n')
+        end_time = time.time()
+        print('Time taken to integrate over depth = ',time.time()-current_time,'\n')
 
-        #print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
+        print('Total time taken for get_E_in_detector = ',time.time()-start_time,'\n')
 
 
 
@@ -169,6 +169,37 @@ class PSFObject(object):
 
         return
 
+
+    def get_detector_image2(self):
+        """
+        Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.
+        """
+
+        #if not hasattr(self, 'Intensity'):
+        #    self.get_E_in_detector()
+
+        pix = 10
+        # Compute the detector image by summing the contributions from all points in the postage stamp
+        #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+
+        XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        
+        imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+        imageY = YAnalysis + self.sY[0,:]
+        
+        
+        Xd = np.floor(XAnalysis//pix)*pix
+        Yd = np.floor(YAnalysis//pix)*pix
+        xd_array = Xd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+        yd_array = Yd - (np.floor((self.postage_stamp_size-1)/2)*pix) + pix*np.arange(int(self.postage_stamp_size))
+
+        xD, yD = np.meshgrid(xd_array, yd_array, indexing='ij')
+
+
+        result = MTF_SCA_postage_stamp(imageX, imageY, xD, yD, self.Intensity_integrated, self.npix_boundary)
+        self.detector_image2 = result
+        
+        
     def get_detector_image(self, nworkers=8, chunk_size=1):
         """
         Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.

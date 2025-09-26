@@ -5,3 +5,8 @@ __pycache__
 *.swp
 .ipynb_checkpoints
 stpsf-data/*
+MTF.py.lprof
+MTF.py.prof
+file1.py
+file2.py
+

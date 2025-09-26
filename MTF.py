@@ -1,6 +1,11 @@
+from line_profiler import profile
 import numpy as np
 from numpy import newaxis as na
+from numba import njit, prange
 
+
+
+@njit
 def MTF(x1, y1, x2, y2):
     """
     Charge diffusion modulation transfer function as a function of Analysis coordinates in mm.
@@ -30,6 +35,7 @@ def MTF(x1, y1, x2, y2):
     MTF3 = w3 * np.exp(-((deltax**2 + deltay**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
     MTF_total = MTF1 + MTF2 + MTF3
     return MTF_total
+
 
 def MTF_image(xd, yd, sX, sY, intensity, npix_boundary=1):
     """
@@ -68,6 +74,7 @@ def MTF_image(xd, yd, sX, sY, intensity, npix_boundary=1):
 
 
     return np.sum(MTF_array*dsX*dsY) 
+
 
 def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):
     """
@@ -110,55 +117,93 @@ def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):
 
 
 
-
-def MTF_SCA(x, y, npix_boundary=1):
+@njit
+def MTF_SCA(x, y, psX, psY, npix_boundary=1):
     """
     Modulation Transfer Function (MTF) for diffusion from point in SCA with Analysis coordinates (x, y) to pixel coordinates given by integer pairs (i, j). 0 <= i,j < 4088. Reflection boundary conditions are applied at the edges of the SCA.
     The MTF is computed for all pixels in the SCA, and the result is returned as a 2D array of shape (4088, 4088).
     """
-    pix = 0.01  # pixel size in mm
+    pix = 10  # pixel size in microns
     nside = 4088 # number of active pixels per side in the SCA (Should this be 4088 or 4096?)
-    side_length = nside * pix  # Length of the SCA in mm
-    xp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # x coordinates of pixel centers in mm
-    yp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # y coordinates of pixel centers in mm
-    Xp, Yp = np.meshgrid(xp_array, yp_array, indexing='ij')  # Create a meshgrid of pixel centers
-    MTF_SCA_array = np.zeros((nside, nside))
+    side_length = nside * pix  # Length of the SCA in micron
+    #xp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # x coordinates of pixel centers in mm
+    #yp_array = (-side_length/2) + (np.array(range(nside)) * pix + pix/2)  # y coordinates of pixel centers in mm
+    #Xp, Yp = np.meshgrid(xp_array, yp_array, indexing='ij')  # Create a meshgrid of pixel centers
+    MTF_SCA_array = np.zeros(psX.shape, dtype=np.float64)
+    
 
 
-    if not np.max(np.abs(x), np.abs(y)) < side_length/2:
-        print('point is outside the SCA')
+    if not max(np.abs(x), np.abs(y)) < side_length/2:
+        #print('point is outside the SCA')
         return MTF_SCA_array
 
     else:
 
 
-        MTF_SCA_array = MTF(Xp, Yp, x, y) ## Baseline MTF without any boundary layer corrections
+        MTF_SCA_array = MTF(psX, psY, x, y) ## Baseline MTF without any boundary layer corrections
 
         # Check if the point is in the left/right boundary layer and apply reflection boundary conditions if necessary
         if x < -side_length/2 + npix_boundary * pix :
             # point is in the left boundary layer
             x_reflected = x - 2 * (x + side_length/2)
-            MTF_SCA_array += MTF(Xp, Yp, x_reflected, y)
+            MTF_SCA_array += MTF(psX, psY, x_reflected, y)
 
         elif x > side_length/2 - npix_boundary * pix:
             # point is in the right boundary layer
             x_reflected = x + 2 * (side_length/2 - x)
-            MTF_SCA_array += MTF(Xp, Yp, x_reflected, y)
+            MTF_SCA_array += MTF(psX, psY, x_reflected, y)
         
         # Check if the point is in the top/bottom boundary layer and apply reflection boundary conditions if necessary
         if y < -side_length/2 + npix_boundary * pix:
             # point is in the bottom boundary layer
             y_reflected = y - 2 * (y + side_length/2)
-            MTF_SCA_array += MTF(Xp, Yp, x, y_reflected)
+            MTF_SCA_array += MTF(psX, psY, x, y_reflected)
 
         elif y > side_length/2 - npix_boundary * pix:
             # point is in the top boundary layer
             y_reflected = y + 2 * (side_length/2 - y)
-            MTF_SCA_array += MTF(Xp, Yp, x, y_reflected)
+            MTF_SCA_array += MTF(psX, psY, x, y_reflected)
 
 
 
         return MTF_SCA_array   
     
-    
 
+@njit(parallel=True)
+def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
+    nx = x.shape[0]
+    ny = y.shape[0]
+    dx = x[1]-x[0]
+    dy = y[1]-y[0]
+    out_shape = psX.shape
+    # Create an accumulator for each iteration
+    #temp = np.zeros((nx * ny, out_shape[0], out_shape[1]), dtype=np.float64)
+    result = np.zeros(psX.shape, dtype=np.float64)
+    for i in prange(nx * ny):
+        ix = i // ny
+        iy = i % ny
+        #temp[i, :, :] = intensity[ix, iy] * MTF_SCA(x[ix], y[iy], psX, psY, npix_boundary) * dx * dy
+        temp = intensity[ix, iy] * MTF_SCA(x[ix], y[iy], psX, psY, npix_boundary) * dx * dy
+        for index_x in range(out_shape[0]):
+            for index_y in range(out_shape[1]):
+                result[index_x, index_y] += temp[index_x, index_y] 
+    # Sum over all iterations to get the final result
+    #result = np.sum(temp, axis=0)
+    
+    return result
+    
+            
+
+
+
+
+x_array = np.linspace(0, 10, 10)
+y_array = np.linspace(0, 10, 10)
+sX_array = np.linspace(-10, 10, 100)
+sY_array = np.linspace(-10, 10, 100)
+
+X, Y = np.meshgrid(x_array, y_array, indexing='ij')
+sX, sY = np.meshgrid(sX_array, sY_array, indexing='ij')
+intensity = np.ones((100,100),dtype=np.float64)
+arr = MTF_SCA(sX[0,0], sY[0,0], X, Y)
+arr = MTF_SCA_postage_stamp(sX_array, sY_array, X, Y, intensity)

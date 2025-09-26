@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import newaxis as na
 import time
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 class filter_detector(object):
     
     def __init__(self,n1,t1,n2,t2,n3,t3,sgn):
@@ -256,6 +256,7 @@ class filter_detector(object):
      (xp, yp, zp) are coordinates along the FPA coordinate axes but with origin shifted to the point of incidence. The returned electric field does not include dependence on xp and yp (see notes)
         '''
         start_time = time.time()
+        current_time = start_time
         u = np.sqrt((ux**2)+(uy**2))
         mask = (u <= 1)
         #mask = np.abs(ux) + np.abs(uy) <= 1.0
@@ -288,7 +289,9 @@ class filter_detector(object):
         E_local[mask, 1] = (1j/(k0*eHgCdTe))*(1j*kz[mask])*H_local_x[mask]
         E_local[mask, 2] = (u[mask]/eHgCdTe)*H_local_x[mask]
 
-
+       # E_local[mask, 0] *= np.exp((1j*kz[mask]*self.sgn*zp[mask]))
+       # E_local[mask, 1] *= np.exp((1j*kz[mask]*self.sgn*zp[mask]))
+       # E_local[mask, 2] *= np.exp((1j*kz[mask]*self.sgn*zp[mask]))
         # Resolve components of the E-field along local x and y axes into components along FPA x and y axes
 
         local_to_FPA = self.local_to_FPA_rotation(ux,uy)
@@ -301,15 +304,17 @@ class filter_detector(object):
         E_FPA_y[mask] = np.sum(local_to_FPA[mask, 1,:]*E_local[mask, :], axis =-1)
         E_FPA_z[mask] = np.sum(local_to_FPA[mask, 2,:]*E_local[mask, :], axis =-1)
 
-        #print('Calculation of E_FPA done in ', time.time() - start_time, ' seconds')
+        print('Calculation of E_FPA done in ', time.time() - current_time, ' seconds')
+        current_time = time.time()
         phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
-        #log_phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
-        #np.multiply(1j*kz[mask, na], self.sgn*zp[na, :], out=log_phase[mask, :])
-        #np.exp(log_phase, out=phase)
-        start_time = time.time()
-        phase[mask, :] = np.exp((1j*kz[mask, na]*self.sgn*zp[na, :]))
+        ##log_phase = np.zeros(ux.shape+zp.shape,dtype=np.complex128)
+        ##np.multiply(1j*kz[mask, na], self.sgn*zp[na, :], out=log_phase[mask, :])
+        ##np.exp(log_phase, out=phase)
+        phase[:,:, :] = np.exp((kz[:,:, na]*(1j*self.sgn*zp[na,na,:])))
 
-        print('Calculation of phase done in ', time.time() - start_time, ' seconds')
+        print('Calculation of exp done in ', time.time() - current_time, ' seconds')
+        current_time = time.time()
+
         Ex = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ey = np.empty(ux.shape + zp.shape,dtype=np.complex128)
         Ez = np.empty(ux.shape + zp.shape,dtype=np.complex128)
@@ -318,7 +323,9 @@ class filter_detector(object):
         np.multiply(E_FPA_y[:,:,na], phase, out=Ey)
         np.multiply(E_FPA_z[:,:,na], phase, out=Ez)
 
-        print('Total calculation done in ', time.time() - start_time, ' seconds')
+        end_time = time.time()
+        print('Calculation of phase done in ', end_time - current_time, ' seconds')
+        print('Total calculation done in ', end_time - start_time, ' seconds')
 
         return (Ex, Ey, Ez)
 
