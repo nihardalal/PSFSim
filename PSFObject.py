@@ -8,7 +8,7 @@ from scipy.linalg import expm
 from scipy.interpolate import griddata
 from scipy.fft import ifftn, ifft2
 from concurrent.futures import ProcessPoolExecutor
-from filter_detector_properties import filter_detector
+from filter_detector_properties import *
 from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
@@ -76,7 +76,7 @@ class PSFObject(object):
         ulen = 2*(smax-smin)/self.wavelength
         return ulen
 
-    def get_Optical_PSF(self, normalise=True):
+    def get_Optical_PSF(self, normalise=True, A_TE=1.e10, A_TM=1.e10):
         """
         Returns values of the optical PSF on the SCA surface in the postage stamp surrounding the point (SCAx, SCAy) in the SCA. This function is added for testing purposes and to assess the impact of the interference filter on the PSF and charge diffusion through the HgCdTe layer. Note that the optical PSF includes the effects of diffraction and pupil mask and is normalised to total flux of 1.
         """
@@ -87,10 +87,43 @@ class PSFObject(object):
        #x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
         #ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
         #prefactor *= ph
+        start_time = time.time()
+        current_time = time.time()
 
-        E = ifft2(self.prefactor)
-        self.Optical_PSF = abs(E)**2
-        self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
+        E_local = np.zeros(self.uX.shape+(3,),dtype=np.complex128)
+        
+
+        E_local[self.mask,0] = A_TE*np.ones_like(self.uX[self.mask])
+        E_local[self.mask,1] = -np.sqrt(1-self.u[self.mask]**2)*A_TM
+        E_local[self.mask,2] = self.u[self.mask]*A_TM
+
+        local_to_FPA = local_to_FPA_rotation(self.uX, self.uY, sgn=1)
+
+        E_FPA_x = np.zeros_like(self.uX,dtype=np.complex128)
+        E_FPA_y = np.zeros_like(self.uX,dtype=np.complex128)
+        E_FPA_z = np.zeros_like(self.uX,dtype=np.complex128)
+
+        E_FPA_x[self.mask] = np.sum(local_to_FPA[self.mask, 0,:]*E_local[self.mask, :], axis =-1)
+        E_FPA_y[self.mask] = np.sum(local_to_FPA[self.mask, 1,:]*E_local[self.mask, :], axis =-1)
+        E_FPA_z[self.mask] = np.sum(local_to_FPA[self.mask, 2,:]*E_local[self.mask, :], axis =-1)
+        end_time = time.time()
+        print('Time taken to get E field in FPA coordinates = ',end_time-current_time,'\n')
+        current_time = time.time()  
+        E_FPA_x *= self.prefactor
+        E_FPA_y *= self.prefactor
+        E_FPA_z *= self.prefactor
+        
+        Ex = ifft2(E_FPA_x)
+        Ey = ifft2(E_FPA_y)
+        Ez = ifft2(E_FPA_z)
+    
+        #Ex = np.fft.ifft2(E_FPA_x, axes=(
+        print('Time taken to do ifft = ',time.time()-current_time,'\n')
+        current_time = time.time()
+        
+        self.Optical_PSF = abs(Ex)**2 + abs(Ey)**2 + abs(Ez)**2
+        print('Time taken to compute Optical PSF by squaring the E field = ', time.time()-current_time,'\n')
+        #self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
         #self.Optical_PSF *= np.sum(self.dsX*self.dsY)
 
 
@@ -98,7 +131,7 @@ class PSFObject(object):
         
 
 
-    def get_E_in_detector(self,filter = interference_filter, detector_thickness=2, zlen=20, nworkers=8):
+    def get_E_in_detector(self,filter = interference_filter, detector_thickness=2, zlen=20, nworkers=8, A_TE=1.e10, A_TM=1.e10):
 
         ''' Creates self.Ex, self.Ey, self.Ez -- arrays of electric field amplitudes within the detector of thickness tz for self.uX and self.uY. Returns a 3D array of intensity in the postage stamp surrounding the point (SCAx, SCAy) in the SCA and going to a depth of tz. The size of the postage stamp and resolution are determined by ulen.
         Also creates self.Filtered_PSF -- the PSF on the SCA surface after passing through the interference filter, normalised to total flux of 1.
@@ -117,7 +150,7 @@ class PSFObject(object):
 
 
 
-        E = filter.Transmitted_E(self.wavelength, uX, uY, z_array)
+        E = filter.Transmitted_E(self.wavelength, uX, uY, z_array, A_TE=A_TE, A_TM=A_TM)
         Ex = E[0]
         Ey = E[1]
         Ez = E[2]
@@ -150,7 +183,7 @@ class PSFObject(object):
         current_time=time.time()
         
 
-        self.Filtered_PSF = Intensity[:,:,0]/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
+        self.Filtered_PSF = Intensity[:,:,0]#/np.sum(Intensity[:,:,0]*self.dsX*self.dsY) # Filtered PSF normalise to total flux of 1 (introduced only for testing purposes)
         #self.Filtered_PSF *= np.sum(self.dsX*self.dsY)
         end_time = time.time()
         print('Time taken to calculate Filtered PSF = ',end_time-current_time,'\n')
