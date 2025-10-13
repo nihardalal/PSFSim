@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 from astropy.io import fits
 
 version = '250506'
@@ -56,6 +57,7 @@ class RayBundle:
 
     Attributes:
         N : size of ray bundle
+        N1, N2: trimmed size (needed for hires mode; otherwise equal to N)
         x : position of rays (0th element 1)
         p : direction of rays (0th element 0)
         s : path length
@@ -78,23 +80,47 @@ class RayBundle:
         a_[0,1:] = 0.
         return np.einsum('ij,...j->...i', a_, b)
 
-    def __init__(self, xan, yan, N, hasE=False, width=2500., startpos = 3500., wl=1.29e-3, wlref=1.29e-3, jacobian = np.array([[1,0],[0,1]])):
+    def __init__(self, xan, yan, N, hasE=False, width=2500., startpos = 3500., wl=1.29e-3, wlref=1.29e-3, jacobian = np.array([[1,0],[0,1]]),
+        hires=None, ovsamp=6):
+
         """Constructor, from a given position xan, yan in WFI coordiantes (in degrees)
         and the given bundle size (N x N)
         The 'hasE' argument tells whether to build an E-field or just do the ray trace (False, default)
         Jacobian will read in a 2 by 2 matrix, defaulting to identity. 
+
+        If hires is not None, then goes into hires mode. This should be a list of pixels, with hires[0] being the 1D array of y-values
+        and hires[1] being the 1D array of x-values.
+
+        The pupil oversampling factor is ovsamp; this is only used in hires mode.
         """
 
         self.N = N
         self.xan = xan; self.yan = yan
-        self.x = np.zeros((N,N,4))
-        self.p = np.zeros((N,N,4))
-        self.open = np.ones((N,N), dtype=bool)
         self.n_loc = 1.
 
         # make a grid for the entrance pupil
         s = np.linspace(-width/2.*(1-1./N),width/2.*(1-1./N),N)
         xi,yi = np.meshgrid(s,s)
+        self.N1 = self.N2 = N
+
+        # hi-resolution mode, if requested
+        if hires is not None:
+            sf = np.linspace(-.5*(1-1./ovsamp), .5*(1-1./ovsamp), ovsamp) * width/N
+            xf, yf = np.meshgrid(sf,sf)
+            xf = xf.ravel()
+            yf = yf.ravel()
+            self.N1 = np.size(hires[1])
+            self.N2 = ovsamp**2
+            xi = np.zeros((self.N1, self.N2))
+            yi = np.zeros((self.N1, self.N2))
+            xi[:,:] = s[hires[1]][:,None] + xf[None,:]
+            yi[:,:] = s[hires[0]][:,None] + yf[None,:]
+
+        self.x = np.zeros((self.N1, self.N2, 4))
+        self.p = np.zeros((self.N1, self.N2, 4))
+        self.open = np.ones((self.N1, self.N2), dtype=bool)
+
+        # build initial position vector
         self.x[:,:,0] = 1.
         self.x[:,:,1] = jacobian[0][0]*xi+jacobian[0][1]*yi
         self.x[:,:,2] = jacobian[1][0]*xi+jacobian[1][1]*yi
@@ -171,7 +197,7 @@ class RayBundle:
         if update: self.s = self.s + L*self.n_loc
 
         # get surface normal
-        norm = np.zeros((self.N,self.N,4))
+        norm = np.zeros((self.N1,self.N2,4))
         norm[:,:,0] = 0.
         norm[:,:,1] = Rinv*xs_[:,:,1]
         norm[:,:,2] = Rinv*xs_[:,:,2]
@@ -280,7 +306,7 @@ class RayBundle:
         # if there is an electric field
         if self.E is not None:
             if rCoefs is None:
-                RS = RP = -np.ones((self.N,self.N), dtype=np.complex128)
+                RS = RP = -np.ones((self.N1,self.N2), dtype=np.complex128)
             else:
                 RS,RP = rCoefs(theta_inc)
 
@@ -356,7 +382,7 @@ class RayBundle:
         # if there is an electric field
         if self.E is not None:
             if tCoefs is None:
-                TS = TP = -np.ones((self.N,self.N), dtype=np.complex128)
+                TS = TP = -np.ones((self.N1,self.N2), dtype=np.complex128)
             else:
                 TS,TP = tCoefs(theta_inc)
 
@@ -386,7 +412,9 @@ class RayBundle:
 # Most information is in CODE V format, but some was converted to be
 # usable in this Python script.
 
-def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, jacobian = np.array([[1,0],[0,1]])):
+def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
+    hires=None, ovsamp=6):
+
     """Carries out trace through RST optics.
     xan, yan : angles in degrees in WFI local field angles
     N : pupil sampling
@@ -409,7 +437,7 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, jacobian = np.ar
     if wl is None: wl=wlref
 
     # initialization
-    RB = RayBundle(xan, yan, N, wl=wl, wlref=wlref, hasE=hasE, jacobian = jacobian)
+    RB = RayBundle(xan, yan, N, wl=wl, wlref=wlref, hasE=hasE, width=width, jacobian = jacobian, hires=hires, ovsamp=ovsamp)
 
     # obstructions:
 
@@ -527,8 +555,37 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, jacobian = np.ar
     RB.u = np.einsum('ij,abj->abi', np.linalg.inv(TrFPA), RB.p)[:,:,1:3]
 
     # get position of central ray and update wavefront map accordingly
-    RB.x_out = np.mean(xyFPA[N//2-1:N//2+1,N//2-1:N//2+1,:], axis=(0,1))
+    if hires is None:
+        RB.x_out = np.mean(xyFPA[N//2-1:N//2+1,N//2-1:N//2+1,:], axis=(0,1))
+    else:
+        RB.x_out = np.mean(xyFPA, axis=(0,1))
     RB.s += np.sum(RB.u*(RB.x_out[None,None,:]-xyFPA), axis=-1)
+
+    return RB
+
+def RomanRayBundleMultiRes(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
+    ovsamp=6):
+
+    """Like RomanRayBundle, but with multi-resolution mask."""
+
+    RB = RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=hasE, width=width, jacobian=jacobian, hires=None)
+
+    # Now figure out which pixels we need to increase the resolution.
+    r = 40.0/width*N # radius of search in pixels
+    rceil = int(np.ceil(r))
+    s = np.linspace(-rceil,rceil,2*rceil+1)
+    x_,y_ = np.meshgrid(s,s)
+    cfilter = np.where(np.hypot(x_,y_)<r,1.,0.)
+    n = np.sum(cfilter)
+    RB.open = RB.open.astype(np.float64)
+    _open = scipy.ndimage.convolve(RB.open, cfilter, mode="nearest")/n
+    bdycells = np.where(np.logical_and(_open>0.5/n, 1-_open>0.5/n))
+    del _open
+
+    # run these pixels specifically at higher resolution
+    RB_hires = RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=False, width=width, jacobian=jacobian, hires=bdycells, ovsamp=ovsamp)
+    print(n, np.shape(RB_hires.open))
+    RB.open[bdycells[0], bdycells[1]] = np.mean(RB_hires.open.astype(np.float64), axis=1)
 
     return RB
 
@@ -545,7 +602,7 @@ def selftest():
     print(RB.p)
 
     # pupils
-    RB = RomanRayBundle(-0.399, 0.208, 512, 'W', wl=9.27e-4, hasE=True)
+    RB = RomanRayBundleMultiRes(-0.399, 0.208, 512, 'W', wl=9.27e-4, hasE=True)
     fits.PrimaryHDU(RB.open.astype(np.int8)).writeto('temp.fits', overwrite=True)
     fits.PrimaryHDU(np.where(RB.open,RB.s-np.median(RB.s),0)).writeto('temp-s.fits', overwrite=True)
     fits.PrimaryHDU(np.where(RB.open,RB.u[:,:,0],0)).writeto('temp-u.fits', overwrite=True)
@@ -561,6 +618,26 @@ def selftest():
     print('-- n table --')
     for wl in np.linspace(6e-4,2.4e-3,37):
         print('{:11.5E} {:8.6f}'.format(wl, n_Infrasil301(wl)))
+
+    E = RB.E * RB.open[:,:,None,None]
+
+    im = np.stack((RB.xyi[:,:,0], RB.xyi[:,:,1], RB.u[:,:,0], RB.u[:,:,1], RB.s, RB.open.astype(np.float64),
+             np.sum(np.abs(E[:,:,0,:])**2, axis=-1),
+             np.sum(np.abs(E[:,:,1,:])**2, axis=-1),
+             E[:,:,0,1].real,
+             E[:,:,0,1].imag,
+             E[:,:,0,2].real,
+             E[:,:,0,2].imag,
+             E[:,:,0,3].real,
+             E[:,:,0,3].imag,
+             E[:,:,1,1].real,
+             E[:,:,1,1].imag,
+             E[:,:,1,2].real,
+             E[:,:,1,2].imag,
+             E[:,:,1,3].real,
+             E[:,:,1,3].imag
+         ))
+    fits.PrimaryHDU(im).writeto("pupil_diagnostics.fits", overwrite=True)
 
 if __name__ == '__main__':
     selftest()
