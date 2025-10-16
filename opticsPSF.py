@@ -43,8 +43,8 @@ class GeometricOptics:
 
         #Set up u,v array for computations of Zernicke Polynomials
         self.ulen = ulen
-        self.umin = -1
-        self.umax = 1
+        self.umin = (-1)*wavelength
+        self.umax = 1*wavelength
 
         self.pupilSampling = 2048
 
