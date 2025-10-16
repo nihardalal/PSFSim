@@ -412,7 +412,7 @@ class RayBundle:
 # Most information is in CODE V format, but some was converted to be
 # usable in this Python script.
 
-def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
+def _RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
     hires=None, ovsamp=6):
 
     """Carries out trace through RST optics.
@@ -563,12 +563,12 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jac
 
     return RB
 
-def RomanRayBundleMultiRes(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
+def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500., jacobian = np.array([[1,0],[0,1]]),
     ovsamp=6):
 
-    """Like RomanRayBundle, but with multi-resolution mask."""
+    """Like _RomanRayBundle, but with multi-resolution mask."""
 
-    RB = RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=hasE, width=width, jacobian=jacobian, hires=None)
+    RB = _RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=hasE, width=width, jacobian=jacobian, hires=None)
 
     # Now figure out which pixels we need to increase the resolution.
     r = 40.0/width*N # radius of search in pixels
@@ -583,7 +583,7 @@ def RomanRayBundleMultiRes(xan, yan, N, usefilter, wl=None, hasE=False, width=25
     del _open
 
     # run these pixels specifically at higher resolution
-    RB_hires = RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=False, width=width, jacobian=jacobian, hires=bdycells, ovsamp=ovsamp)
+    RB_hires = _RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=False, width=width, jacobian=jacobian, hires=bdycells, ovsamp=ovsamp)
     print(n, np.shape(RB_hires.open))
     RB.open[bdycells[0], bdycells[1]] = np.mean(RB_hires.open.astype(np.float64), axis=1)
 
@@ -602,7 +602,7 @@ def selftest():
     print(RB.p)
 
     # pupils
-    RB = RomanRayBundleMultiRes(-0.399, 0.208, 512, 'W', wl=9.27e-4, hasE=True)
+    RB = RomanRayBundle(-0.399, 0.208, 512, 'W', wl=9.27e-4, hasE=True)
     fits.PrimaryHDU(RB.open.astype(np.int8)).writeto('temp.fits', overwrite=True)
     fits.PrimaryHDU(np.where(RB.open,RB.s-np.median(RB.s),0)).writeto('temp-s.fits', overwrite=True)
     fits.PrimaryHDU(np.where(RB.open,RB.u[:,:,0],0)).writeto('temp-u.fits', overwrite=True)
