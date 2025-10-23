@@ -57,7 +57,7 @@ class PSFObject(object):
         self.dsX = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
         self.dsY = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
  
-        prefactor = self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
+        prefactor = self.Optics.pupilMask/self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
 
         x_minus = (-1)**np.array(range(self.ulen))#used to translate ftt to image center
         ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
