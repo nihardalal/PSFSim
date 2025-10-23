@@ -27,11 +27,14 @@ def compute_jacobian(u, dx=1.0, dy=1.0):
     return jacobian
 
 class GeometricOptics:
-    def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048, ray_trace=False):
+    def __init__(self, SCAnum,SCAx, SCAy, wavelength = 0.48, ulen = 2048, ray_trace=False, pixelsampling = 1.00):
         #sca position in mm
         #wavelength in micrometers
 
         self.wavelength = wavelength
+        self.dsX = pixelsampling #pixel spacing in microns
+        self.pupilLength = 2400*8 #in mm
+        self.samplingwidth = (self.wavelength/self.dsX)*self.pupilLength #in mm for raytrace
 
         self.scaNum = SCAnum
         self.scaX = SCAx
@@ -43,10 +46,10 @@ class GeometricOptics:
 
         #Set up u,v array for computations of Zernicke Polynomials
         self.ulen = ulen
-        self.umin = (-1)*wavelength
-        self.umax = 1*wavelength
+        self.umin = (-0.5)*wavelength/self.dsX
+        self.umax = (0.5)*wavelength/self.dsX
 
-        self.pupilSampling = 2048
+        self.pupilSampling = self.ulen
 
         self.uX = np.linspace(self.umin, self.umax, self.ulen)
         self.uY = np.linspace(self.umin, self.umax, self.ulen)
@@ -122,9 +125,8 @@ class GeometricOptics:
     
     def loadPupilMask(self, use_ray_trace = False):
         if use_ray_trace:
-            pupilLength = 2400*8 #in mm
-            jacobian = -pupilLength*self.distortionMatrix
-            rb = RomanRayBundle(self.xan, self.yan, self.pupilSampling, self.usefilter, wl = self.wavelength*0.001, hasE = True, jacobian = jacobian)
+            jacobian = np.linalg.inv(-self.pupilLength*self.distortionMatrix)
+            rb = RomanRayBundle(self.xan, self.yan, self.pupilSampling, self.usefilter, width = self.samplingwidth, wl = self.wavelength*0.001, hasE = True, jacobian = jacobian)
             mask = rb.open
         else:
             dirName = './stpsf-data/WFI/pupils/'
