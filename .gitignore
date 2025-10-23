@@ -9,4 +9,4 @@ MTF.py.lprof
 MTF.py.prof
 file1.py
 file2.py
-
+*.fits
