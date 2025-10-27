@@ -1,0 +1,10 @@
+# Changes here will be overwritten by Copier
+_commit: v2.1.0
+_src_path: gh:lincc-frameworks/python-project-template
+author_email: dalal.64@osu.edu
+author_name: Nihar Dalal
+custom_install: false
+package_name: psf_sim
+project_license: MIT
+project_name: psf_sim
+project_organization: Roman-HLIS-Cosmology-PIT
