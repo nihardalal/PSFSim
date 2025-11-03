@@ -46,13 +46,16 @@ class GeometricOptics:
 
         #Set up u,v array for computations of Zernicke Polynomials
         self.ulen = ulen
-        self.umin = (-0.5)*wavelength/self.dsX
-        self.umax = (0.5)*wavelength/self.dsX
+
+        #Go with some version of centered sampling if not using ray trace
+        if not ray_trace:
+            self.umin = (-0.5)*wavelength/self.dsX
+            self.umax = (0.5)*wavelength/self.dsX
+            self.uX = np.linspace(self.umin, self.umax, self.ulen)
+            self.uY = np.linspace(self.umin, self.umax, self.ulen)
+            self.uArray, self.vArray = np.meshgrid(self.uX, self.uY)
 
         self.pupilSampling = self.ulen
-
-        self.uX = np.linspace(self.umin, self.umax, self.ulen)
-        self.uY = np.linspace(self.umin, self.umax, self.ulen)
 
         #Get angular coordinates    
         self.xan, self.yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
@@ -63,10 +66,15 @@ class GeometricOptics:
         self.distortionMatrix = self.computeDistortionMatrix(method='raytrace')
         self.determinant = self.computeDeterminant()
 
-        # Obtain pupil Mask and path difference map
+         # Obtain pupil Mask 
         self.pupilMask = self.loadPupilMask(use_ray_trace=ray_trace)
 
-
+        #Load pupil mask from raytrace - more accurate
+        self.uArray = self.pupilMaskU[:,:,0]
+        self.vArray  =self.pupilMaskU[:,:,1]
+        self.umin = np.min(self.uArray)
+        self.umax = np.max(self.uArray)
+        #Get path difference map
         self.pathDifference = self.pathDiff()
         
 
@@ -128,6 +136,10 @@ class GeometricOptics:
             jacobian = np.linalg.inv(-self.pupilLength*self.distortionMatrix)
             rb = RomanRayBundle(self.xan, self.yan, self.pupilSampling, self.usefilter, width = self.samplingwidth, wl = self.wavelength*0.001, hasE = True, jacobian = jacobian)
             mask = rb.open
+            self.pupilMaskU = rb.u
+            self.pupilMaskS = rb.s
+            self.pupilMaskXin = rb.xyi
+            self.pupilMaskXout = rb.x_out
         else:
             dirName = './stpsf-data/WFI/pupils/'
             pupilMaskString = 'SCA{}_full_mask.fits.gz'.format(self.scaNum)
@@ -136,9 +148,6 @@ class GeometricOptics:
         return mask
     
     def pathDiff(self):
-
-        self.uArray, self.vArray = np.meshgrid(self.uX, self.uY)
-
         self.urhoPolar =  np.sqrt(self.uArray**2+self.vArray**2)
         self.uthetaPolar = np.arctan2(self.vArray, self.uArray)
 

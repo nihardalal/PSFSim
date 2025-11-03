@@ -43,7 +43,7 @@ class PSFObject(object):
             self.ulen = 2048 # default value
 
         self.Optics = GeometricOptics(SCAnum, SCAx, SCAy, wavelength, self.ulen, ray_trace=ray_trace)
-        self.uX, self.uY = np.meshgrid(self.Optics.uX, self.Optics.uY, indexing='ij')
+        self.uX, self.uY = self.Optics.uArray, self.Optics.vArray#np.meshgrid(self.Optics.uX, self.Optics.uY, indexing='ij')
         self.u = np.sqrt(self.uX**2 + self.uY**2)
         self.mask = (self.u <= 1)
 
