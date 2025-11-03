@@ -37,6 +37,34 @@ def MTF(x1, y1, x2, y2):
     return MTF_total
 
 
+def MTF_array(pixelsampling=1.0, ps=6):
+    """
+    Function to compute the profile of the modulation tranfer function in analysis coordinates at a spacing of PSFObject.dsX microns over a grid of size ps*pix x ps*pix microns, where pix is the native pixel size of 10 microns. 
+    """
+    pix = 10  # pixel size in microns
+    sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
+    w1 = 0.17519
+    w2 = 0.53146
+    w3 = 0.29335
+    c1 = 0.4522
+    c2 = 0.8050
+    c3 = 1.4329
+
+    sigma1 = c1*sigma_s
+    sigma2 = c2*sigma_s
+    sigma3 = c3*sigma_s
+
+    xd = np.arange(-ps*pix/2, (ps*pix/2) + pixelsampling, pixelsampling)
+    yd = np.arange(-ps*pix/2, (ps*pix/2) + pixelsampling, pixelsampling)
+    Xd, Yd = np.meshgrid(xd, yd, indexing='ij')
+    MTF1 = w1 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma1**2))) * (1/(2*np.pi*sigma1**2))
+    MTF2 = w2 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma2**2))) * (1/(2*np.pi*sigma2**2))
+    MTF3 = w3 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
+    MTF_total = MTF1 + MTF2 + MTF3
+    return (Xd, Yd, MTF_total)
+    
+
+
 def MTF_image(xd, yd, sX, sY, intensity, npix_boundary=1):
     """
     Function to compute the detector response at the detector on (SCAx, SCAy) from an image with analysis coordinates sX, sY (meshgrid) and the intensity profile given by Intensity. 

@@ -25,7 +25,7 @@ interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0,
 
 class PSFObject(object):
 
-    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=True, ray_trace=False):
+    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=False, ray_trace=True):
 
         '''
         Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength (and possibly others) 
@@ -201,6 +201,29 @@ class PSFObject(object):
 
 
         return
+
+
+    def get_detector_image3(self):
+
+        """
+        Returns the postage_stamp_size x postage_stamp_size detector image as a 2D array of intensity values.
+        """
+
+        #if not hasattr(self, 'Intensity'):
+        #    self.get_E_in_detector()
+
+        pix = 10
+        # Compute the detector image by summing the contributions from all points in the postage stamp
+        #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+
+        XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        
+        imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+        imageY = YAnalysis + self.sY[0,:]
+
+        MTF_array = np.zeros_like(self.sX, dtype=np.float64)
+
+        
 
 
     def get_detector_image2(self):
