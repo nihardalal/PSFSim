@@ -224,14 +224,3 @@ def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
 
 
 
-
-x_array = np.linspace(0, 10, 10)
-y_array = np.linspace(0, 10, 10)
-sX_array = np.linspace(-10, 10, 100)
-sY_array = np.linspace(-10, 10, 100)
-
-X, Y = np.meshgrid(x_array, y_array, indexing='ij')
-sX, sY = np.meshgrid(sX_array, sY_array, indexing='ij')
-intensity = np.ones((100,100),dtype=np.float64)
-arr = MTF_SCA(sX[0,0], sY[0,0], X, Y)
-arr = MTF_SCA_postage_stamp(sX_array, sY_array, X, Y, intensity)

@@ -218,7 +218,7 @@ class PSFObject(object):
 
         
 
-        self.detector_image3 = fftconvolve(self.Intensity_integrated, MTF_array, mode='same')
+        self.detector_image3 = fftconvolve(self.Intensity_integrated, self.MTF_array, mode='same')
         
 
         
@@ -247,7 +247,7 @@ class PSFObject(object):
 
         pix = 10
         ps = self.ulen/pix
-        pixel_sampling = 
+        
         # Compute the detector image by summing the contributions from all points in the postage stamp
         #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
 
