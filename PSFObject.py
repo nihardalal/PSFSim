@@ -14,6 +14,7 @@ from nHgCdTe import nHgCdTe
 from opticsPSF import GeometricOptics
 import WFI_coordinate_transformations as WFI
 from MTF import *
+from zernike import *
 import time 
 #from numba import njit, prange
 import os
@@ -26,7 +27,7 @@ interference_filter = filter_detector(n1=1.5, t1=1./3, n2=1.43, t2=1./3, n3=2.0,
 
 class PSFObject(object):
 
-    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=False, ray_trace=True):
+    def __init__(self, SCAnum, SCAx, SCAy, wavelength = 0.48, postage_stamp_size=31, npix_boundary=1, use_postage_stamp_size=False, ray_trace=True, add_focus = None):
 
         '''
         Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength (and possibly others) 
@@ -57,6 +58,11 @@ class PSFObject(object):
 
         self.dsX = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
         self.dsY = self.Optics.wavelength/(self.Optics.umax-self.Optics.umin) # postage stamp pixel size in microns
+
+        if not add_focus==None:
+            nZern, mZern = noll_to_zernike(4)
+            self.Optics.pathDifference += add_focus*zernike(nZern, mZern, 2*self.Optics.focalLength*self.Optics.urhoPolar,
+                                                             self.Optics.uthetaPolar)
  
         prefactor = self.Optics.pupilMask/self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j*self.Optics.pathDifference)
 
@@ -93,7 +99,6 @@ class PSFObject(object):
         #prefactor *= ph
         start_time = time.time()
         current_time = time.time()
-
         E_local = np.zeros(self.uX.shape+(3,),dtype=np.complex128)
         
 
