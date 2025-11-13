@@ -5,8 +5,8 @@ from numba import njit, prange
 
 
 
-@njit
-def MTF(x1, y1, x2, y2):
+#@njit
+def MTF(Xd, Yd):
     """
     Charge diffusion modulation transfer function as a function of Analysis coordinates in mm.
     The MTF is calculated using a three-gaussian approximation of the charge diffusion in the SCA, 
@@ -14,11 +14,10 @@ def MTF(x1, y1, x2, y2):
     described in Emily's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632
     Note that in terms of the arguments x1, y1, x2, y2 the MTF computes diffusion from (x2, y2) to (x1, y1). 
     """
-
-    deltax = x1 - x2
-    deltay = y1 - y2
+    
     pix = 10  # pixel size in microns
     sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
+    sigma_s = 5*sigma_s
     w1 = 0.17519
     w2 = 0.53146
     w3 = 0.29335
@@ -30,9 +29,9 @@ def MTF(x1, y1, x2, y2):
     sigma2 = c2*sigma_s
     sigma3 = c3*sigma_s
 
-    MTF1 = w1 * np.exp(-((deltax**2 + deltay**2) / (2 * sigma1**2))) * (1/(2*np.pi*sigma1**2))
-    MTF2 = w2 * np.exp(-((deltax**2 + deltay**2) / (2 * sigma2**2))) * (1/(2*np.pi*sigma2**2))
-    MTF3 = w3 * np.exp(-((deltax**2 + deltay**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
+    MTF1 = w1 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma1**2))) * (1/(2*np.pi*sigma1**2))
+    MTF2 = w2 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma2**2))) * (1/(2*np.pi*sigma2**2))
+    MTF3 = w3 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
     MTF_total = MTF1 + MTF2 + MTF3
     return MTF_total
 
@@ -43,6 +42,7 @@ def MTF_array(pixelsampling=1.0, ps=6):
     """
     pix = 10  # pixel size in microns
     sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
+    sigma_s = 5*sigma_s
     w1 = 0.17519
     w2 = 0.53146
     w3 = 0.29335
@@ -145,7 +145,7 @@ def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):
 
 
 
-@njit
+#@njit
 def MTF_SCA(x, y, psX, psY, npix_boundary=1):
     """
     Modulation Transfer Function (MTF) for diffusion from point in SCA with Analysis coordinates (x, y) to pixel coordinates given by integer pairs (i, j). 0 <= i,j < 4088. Reflection boundary conditions are applied at the edges of the SCA.
@@ -197,7 +197,7 @@ def MTF_SCA(x, y, psX, psY, npix_boundary=1):
         return MTF_SCA_array   
     
 
-@njit(parallel=True)
+#@njit(parallel=True)
 def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
     nx = x.shape[0]
     ny = y.shape[0]
@@ -224,14 +224,3 @@ def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
 
 
 
-
-x_array = np.linspace(0, 10, 10)
-y_array = np.linspace(0, 10, 10)
-sX_array = np.linspace(-10, 10, 100)
-sY_array = np.linspace(-10, 10, 100)
-
-X, Y = np.meshgrid(x_array, y_array, indexing='ij')
-sX, sY = np.meshgrid(sX_array, sY_array, indexing='ij')
-intensity = np.ones((100,100),dtype=np.float64)
-arr = MTF_SCA(sX[0,0], sY[0,0], X, Y)
-arr = MTF_SCA_postage_stamp(sX_array, sY_array, X, Y, intensity)

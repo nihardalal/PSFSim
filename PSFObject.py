@@ -7,6 +7,7 @@ from astropy.io import fits
 from scipy.linalg import expm
 from scipy.interpolate import griddata
 from scipy.fft import ifftn, ifft2
+from scipy.signal import fftconvolve
 from concurrent.futures import ProcessPoolExecutor
 from filter_detector_properties import *
 from nHgCdTe import nHgCdTe
@@ -63,6 +64,9 @@ class PSFObject(object):
         ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
         
         self.prefactor = prefactor*ph
+
+
+        self.MTF_array = MTF(self.sX, self.sY)
 
 
     def get_ulen(self, ps=20):
@@ -212,16 +216,23 @@ class PSFObject(object):
         #if not hasattr(self, 'Intensity'):
         #    self.get_E_in_detector()
 
-        pix = 10
-        # Compute the detector image by summing the contributions from all points in the postage stamp
-        #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
-
-        XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
         
-        imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
-        imageY = YAnalysis + self.sY[0,:]
 
-        MTF_array = np.zeros_like(self.sX, dtype=np.float64)
+        self.detector_image3 = fftconvolve(self.Intensity_integrated, self.MTF_array, mode='same')
+        
+
+        
+        
+
+        
+
+        
+        #XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        
+        #imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+        #imageY = YAnalysis + self.sY[0,:]
+
+        #MTF_array = np.zeros_like(self.sX, dtype=np.float64)
 
         
 
@@ -235,6 +246,8 @@ class PSFObject(object):
         #    self.get_E_in_detector()
 
         pix = 10
+        ps = self.ulen/pix
+        
         # Compute the detector image by summing the contributions from all points in the postage stamp
         #detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
 
