@@ -34,6 +34,7 @@ class GeometricOptics:
         self.wavelength = wavelength
         self.dsX = pixelsampling #pixel spacing in microns
         self.pupilLength = 2400*8 #in mm
+        self.focalLength = 8 #m
         self.samplingwidth = (self.wavelength/self.dsX)*self.pupilLength #in mm for raytrace
 
         self.scaNum = SCAnum
@@ -74,6 +75,10 @@ class GeometricOptics:
         self.vArray  =self.pupilMaskU[:,:,1]
         self.umin = np.min(self.uArray)
         self.umax = np.max(self.uArray)
+        self.vmin = np.min(self.vArray)
+        self.vmax = np.max(self.vArray)
+        self.ucen = 0.5*(self.umin+self.umax)
+        self.vcen = 0.5*(self.vmin+self.vmax)
         #Get path difference map
         self.pathDifference = self.pathDiff()
         
@@ -148,8 +153,8 @@ class GeometricOptics:
         return mask
     
     def pathDiff(self):
-        self.urhoPolar =  np.sqrt(self.uArray**2+self.vArray**2)
-        self.uthetaPolar = np.arctan2(self.vArray, self.uArray)
+        self.urhoPolar =  np.sqrt((self.uArray-self.ucen)**2+(self.vArray-self.vcen)**2)
+        self.uthetaPolar = np.arctan2(self.vArray-self.vcen, self.uArray-self.ucen)
 
         mydata = pd.read_csv('stpsf-data/WFI/wim_zernikes_cycle9.csv', sep=',', header=0)
         #Define mask to desired wavelength and correct X and Y (Need to modify to within bounds):
@@ -169,5 +174,5 @@ class GeometricOptics:
             #print(zernCoeff)
             nZern, mZern = zernike.noll_to_zernike(i+1)
             #print(zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar))
-            pathDiff += zernCoeff*zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar)
+            pathDiff += zernCoeff*zernike.zernike(nZern, mZern, 2*self.focalLength*self.urhoPolar, self.uthetaPolar)
         return pathDiff
