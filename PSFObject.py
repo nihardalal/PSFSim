@@ -153,9 +153,9 @@ class PSFObject(object):
         z_array = np.linspace(0, detector_thickness, zlen)
         dZ = z_array[1]-z_array[0]
         ulen = self.Optics.ulen
-        uX = self.Optics.uX
-        uY = self.Optics.uY
-        uX, uY = np.meshgrid(uX, uY, indexing='ij')
+        uX = self.Optics.uArray
+        uY = self.Optics.vArray
+        #uX, uY = np.meshgrid(uX, uY, indexing='ij')
 
 
 
