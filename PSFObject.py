@@ -260,7 +260,7 @@ class PSFObject(object):
 
         XAnalysis, YAnalysis = WFI.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY) #Center of the PSF in Analysis coordinates
         
-        imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY are in microns whereas Analysis coordinates and MTF are in mm
+        imageX = XAnalysis + self.sX[:,0]   # Note that self.sX and self.sY and 
         imageY = YAnalysis + self.sY[0,:]
         
         

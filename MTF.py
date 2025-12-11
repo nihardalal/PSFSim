@@ -5,14 +5,17 @@ from numba import njit, prange
 
 
 
-#@njit
-def MTF(Xd, Yd):
+@njit
+def MTF(Xd, Yd, x2=0, y2=0):
     """
     Charge diffusion modulation transfer function as a function of Analysis coordinates in mm.
     The MTF is calculated using a three-gaussian approximation of the charge diffusion in the SCA, 
     where the parameters are derived from the charge diffusion model
     described in Emily's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632
-    Note that in terms of the arguments x1, y1, x2, y2 the MTF computes diffusion from (x2, y2) to (x1, y1). 
+    Note that the arguments Xd, Yd, x2, y2 should be in microns.
+    (x2, y2) is the center of the charge diffusion kernel.
+    Returns the value of the MTF at the point (Xd, Yd) due to a point source at (x2, y2) 
+
     """
     
     pix = 10  # pixel size in microns
@@ -29,9 +32,12 @@ def MTF(Xd, Yd):
     sigma2 = c2*sigma_s
     sigma3 = c3*sigma_s
 
-    MTF1 = w1 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma1**2))) * (1/(2*np.pi*sigma1**2))
-    MTF2 = w2 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma2**2))) * (1/(2*np.pi*sigma2**2))
-    MTF3 = w3 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
+    XD = Xd - x2
+    YD = Yd - y2
+
+    MTF1 = w1 * np.exp(-((XD**2 + YD**2) / (2 * sigma1**2))) * (1/(2*np.pi*sigma1**2))
+    MTF2 = w2 * np.exp(-((XD**2 + YD**2) / (2 * sigma2**2))) * (1/(2*np.pi*sigma2**2))
+    MTF3 = w3 * np.exp(-((XD**2 + YD**2) / (2 * sigma3**2))) * (1/(2*np.pi*sigma3**2))
     MTF_total = MTF1 + MTF2 + MTF3
     return MTF_total
 
@@ -42,7 +48,7 @@ def MTF_array(pixelsampling=1.0, ps=6):
     """
     pix = 10  # pixel size in microns
     sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
-    sigma_s = 5*sigma_s
+    sigma_s = sigma_s
     w1 = 0.17519
     w2 = 0.53146
     w3 = 0.29335
@@ -145,11 +151,15 @@ def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):
 
 
 
-#@njit
-def MTF_SCA(x, y, psX, psY, npix_boundary=1):
+@njit
+def MTF_SCA(psX, psY, x, y, npix_boundary=1):
     """
-    Modulation Transfer Function (MTF) for diffusion from point in SCA with Analysis coordinates (x, y) to pixel coordinates given by integer pairs (i, j). 0 <= i,j < 4088. Reflection boundary conditions are applied at the edges of the SCA.
-    The MTF is computed for all pixels in the SCA, and the result is returned as a 2D array of shape (4088, 4088).
+    psX, psY : postage_stamp_size x postage_stamp_size meshgrid of the coordinates (in the Analysis coordinate system) of the postage stamp points
+
+    x, y : Analysis coordinates of the point in the SCA from which the diffusion is computed (in microns)
+
+    npix_boundary : number of pixels in the boundary layer where reflection boundary conditions are applied
+
     """
     pix = 10  # pixel size in microns
     nside = 4088 # number of active pixels per side in the SCA (Should this be 4088 or 4096?)
@@ -197,8 +207,18 @@ def MTF_SCA(x, y, psX, psY, npix_boundary=1):
         return MTF_SCA_array   
     
 
-#@njit(parallel=True)
+@njit(parallel=True)
 def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
+    """
+    Function to compute the detector response at the detector on (SCAx, SCAy) from an image with analysis coordinates sX, sY (meshgrid) and the intensity profile given by Intensity.
+
+    x, y : arrays of the analysis coordinates (in mm) over which the intensity is defined. Each is a 1D array with len=ulen
+
+    psX, psY : postage_stamp_size x postage_stamp_size meshgrid of the coordinates (in the Analysis coordinate system) of the postage stamp points
+
+    intensity : ulen x ulen array of intensity values integrated over the depth of the detector.
+
+    """
     nx = x.shape[0]
     ny = y.shape[0]
     dx = x[1]-x[0]
@@ -211,13 +231,13 @@ def MTF_SCA_postage_stamp(x, y, psX, psY, intensity, npix_boundary=1):
         ix = i // ny
         iy = i % ny
         #temp[i, :, :] = intensity[ix, iy] * MTF_SCA(x[ix], y[iy], psX, psY, npix_boundary) * dx * dy
-        temp = intensity[ix, iy] * MTF_SCA(x[ix], y[iy], psX, psY, npix_boundary) * dx * dy
+        temp = intensity[ix, iy] * MTF_SCA(psX, psY, x[ix], y[iy], npix_boundary) * dx * dy
         for index_x in range(out_shape[0]):
             for index_y in range(out_shape[1]):
                 result[index_x, index_y] += temp[index_x, index_y] 
     # Sum over all iterations to get the final result
     #result = np.sum(temp, axis=0)
-    
+
     return result
     
             
