@@ -252,7 +252,7 @@ class PSFObject(object):
         #if not hasattr(self, 'Intensity'):
         #    self.get_E_in_detector()
 
-        pix = 10
+        pix = 1.0
         ps = self.ulen/pix
         
         # Compute the detector image by summing the contributions from all points in the postage stamp
