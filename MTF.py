@@ -17,7 +17,7 @@ def MTF(Xd, Yd):
     
     pix = 10  # pixel size in microns
     sigma_s = 0.3279*pix # sigma of the charge diffusion in pixel units
-    sigma_s = 5*sigma_s
+    sigma_s = sigma_s
     w1 = 0.17519
     w2 = 0.53146
     w3 = 0.29335
