@@ -128,7 +128,7 @@ def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):
 
     sX, sY : ulen x ulen meshgrid arrays of the image coordinates (in analysis coordinates, in mm)
     psX, psY : postage_stamp_size x postage_stamp_size meshgrid of the coordinates (in the Analysis
-        coordinate system) of the postage stamp points
+    coordinate system) of the postage stamp points
     intensity : ulen x ulen array of intensity values integrated over the depth of the detector.
 
     """

@@ -76,7 +76,7 @@ class RayBundle:
         open : boolean (has this ray propagated)
         wl, wlref : wavelength and reference wavelength (the latter for geometric trace)
         E : electric field (optional, 4D: 2D for array, 1D for input pol, 1D for output pol)
-             - None if not used
+        - None if not used
     """
 
     # forward and reverse transformations
@@ -107,7 +107,8 @@ class RayBundle:
         hires=None,
         ovsamp=6,
     ):
-        """Constructor, from a given position xan, yan in WFI coordiantes (in degrees)
+        """
+        Constructor, from a given position xan, yan in WFI coordiantes (in degrees)
         and the given bundle size (N x N)
         The 'hasE' argument tells whether to build an E-field or just do the ray trace (False, default)
         Jacobian will read in a 2 by 2 matrix, defaulting to identity.
@@ -248,8 +249,8 @@ class RayBundle:
         """Masks incoming rays at a given surface.
         The mask has coordinate coordinate transform Trf and radius R (set to None if no outer barrier).
         The masklist is a list of dictionary obstructions, which have attributes:
-            CIR, REX, REY (CODE V codes for shapes)
-            ADX, ADY, ARO (CODE V de-centers)
+        #    CIR, REX, REY (CODE V codes for shapes)
+        #    ADX, ADY, ARO (CODE V de-centers)
         """
 
         # get where these rays intersect the surface
@@ -507,7 +508,7 @@ def _RomanRayBundle(
 
     If hasE is true:
     RB.E : shape (N,N,2,4), complex, electric field for the 2 initial polarizations and 3 components
-        (last axis 0th component should be 0)
+    (last axis 0th component should be 0)
     """
 
     if jacobian is None:
