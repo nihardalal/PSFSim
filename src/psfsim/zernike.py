@@ -10,7 +10,7 @@ def zernike_radial(n, m, rho):
     Compute radial part of Zernike polynomial Rnm(rho)
     Args:
         n: azimuthal order (n >= 0)
-        m: radial order (|m| <= n, n-m even)
+        m: radial order (abs m <= n, n-m even)
         rho: radial coordinate array (0 <= rho <= 1)
     Returns:
         Radial polynomial values
@@ -38,7 +38,7 @@ def zernike(n, m, rho, theta, normalized=True):
         Complex array if m != 0, real array otherwise
     """
     if abs(m) > n:
-        raise ValueError("Require |m| <= n")
+        raise ValueError("Require abs m <= n")
 
     R = zernike_radial(n, abs(m), rho)
     norm = np.sqrt(2 * (n + 1) / (1 + (m == 0))) if normalized else 1.0
