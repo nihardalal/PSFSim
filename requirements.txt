@@ -3,3 +3,4 @@ numba
 scipy
 astropy
 galsim
+pandas
