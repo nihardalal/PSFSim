@@ -31,6 +31,8 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f docs/requirements.txt ]; then pip install -r docs/requirements.txt; fi
         pip install .
+    - name: Install pandoc
+      uses: pandoc/actions/setup@v1
     - name: Build docs
       run: |
         sphinx-build -T -E -b html -d docs/build/doctrees ./docs docs/build/html
