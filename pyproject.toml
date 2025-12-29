@@ -24,7 +24,7 @@ dependencies = { file = "requirements.txt" }
 "Source Code" = "https://github.com/Roman-HLIS-Cosmology-PIT/psfsim"
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
-[project.optional-dependencies]
+[tool.setuptools.dynamic.optional-dependencies]
 dev = { file = "requirements-dev.txt" }
 
 [build-system]
