@@ -5,7 +5,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 authors = [
-    { name = "Nihar Dalal", email = "dalal.64@osu.edu" }
+    { name = "Nihar Dalal", email = "dalal.64@osu.edu" },
+    { name = "Charuhas Shiveshwarkar", email = "shiveshwarkar.1@osu.edu" },
+    { name = "Christopher Hirata", email = "hirata.10@osu.edu" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -21,7 +23,7 @@ requires-python = ">=3.11"
 dependencies = { file = "requirements.txt" }
 
 [project.urls]
-"Source Code" = "https://github.com/Roman-HLIS-Cosmology-PIT/psfsim"
+"Source Code" = "https://github.com/nihardalal/PSFSim"
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
 [tool.setuptools.dynamic.optional-dependencies]

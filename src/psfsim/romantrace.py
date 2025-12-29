@@ -8,10 +8,29 @@ version = "250506"
 
 
 def n_Infrasil301(wl, T=180.0):
-    """Index of refraction of Infrasil301. wl in mm, T in Kelvin. Both scalars.
+    """
+    Function to compute the index of refraction of Infrasil 301.
 
+    Parameters
+    ----------
+    wl : float
+        Vacuum wavelength in millimeters.
+    T : float, optional
+        Temperature in Kelvin.
+
+    Returns
+    -------
+    float
+        The (real) index of refraction.
+
+    Notes
+    -----
+    Original reference is:
     Sellmeier coefficients from Leviton, Frey, & Madison (2008)
     arXiv:0805.0096
+
+    Valid in the Roman wavelength range.
+
     """
 
     data = np.array(
@@ -32,11 +51,37 @@ def n_Infrasil301(wl, T=180.0):
 
 
 def build_transform_matrix(xde=0.0, yde=0.0, zde=0.0, ade=0.0, bde=0.0, cde=0.0, unit="degree"):
-    """Makes a 4x4 transformation matrix:
-    u(global coords) = R u(obj coords)
-    where u is a vector of [1,x,y,z]
+    """
+    Makes a transformation matrix from a set of translations and rotations.
 
-    Legal units are 'degree' or 'radian'
+    The matrix is 4x4 and the convention is::
+
+        u(global coords) = R u(obj coords)
+        where u is a vector of [1,x,y,z]
+
+    Parameters
+    ----------
+    xde, yde, zde : float, optional
+        Translations on each axis. The convention is that the origin in object coordinates
+        is at (`xde`, `yde`, `zde`) in global coordinates.
+    ade, bde, cde : float, optional
+        Euler angles, in the rotX - rotY - rotZ convention (so you can envision rotating the global to
+        the object system via a right-handed rotation around X; then a right-handed rotation around Y;
+        and finally a left-handed rotation around Z). The convention is that:
+
+        - The *object* z-axis direction is in the *global* direction
+          (-sin bde, sin ade * cos bde, cos ade * cos bde)
+
+        - The *global* x-axis direction is in the *object* direction
+          (cos bde * cos cde, cos bde * sin cde, -sin bde).
+    unit : str, optional
+        Angular unit: "degree" (default) or "radian".
+
+    Returns
+    -------
+    np.ndarray
+        The 4x4 transformation matrix.
+
     """
 
     # conversion
@@ -62,32 +107,120 @@ def build_transform_matrix(xde=0.0, yde=0.0, zde=0.0, ade=0.0, bde=0.0, cde=0.0,
 
 class RayBundle:
 
-    """Class defining a ray bundle. This has a bunch of attributes for 2D array of rays.
+    """
+    Class defining a ray bundle, constructed from a field position.
 
-    Attributes:
-        N : size of ray bundle
-        N1, N2: trimmed size (needed for hires mode; otherwise equal to N)
-        x : position of rays (0th element 1)
-        p : direction of rays (0th element 0)
-        s : path length
-        n_loc : local index of refraction
-        xan, yan: field angles (in degrees)
-        costhetaent: projection factor for entrance aperture
-        open : boolean (has this ray propagated)
-        wl, wlref : wavelength and reference wavelength (the latter for geometric trace)
-        E : electric field (optional, 4D: 2D for array, 1D for input pol, 1D for output pol)
-        - None if not used
+    Parameters
+    ----------
+    xan, yan : float
+        Field angles (in degrees).
+    N : int
+        The bundle size on each axis of the entrance pupil (so ``N**2`` total points).
+    hasE : bool, optional
+        Also propagate the electric field?
+    width : float, optional
+        The size of the grid for the entrance pupil (in mm; default of 2500 mm is
+        good for Roman).
+    startpos : float, optional
+        Starting Z-position in mm (default is before the SM obstruction in Roman).
+    wl : float, optional
+        The vacuum wavelength in mm.
+    wlref : float, optional
+        The vacuum wavelength in mm used as a reference (this is so that when we make
+        chromatic PSFs, the "center" of the PSF always ends up in the same place, and
+        e.g. DCR effects show up in wavelength-dependent Zernike Z2 & Z3 modes).
+    jacobian : np.ndarray, optional
+        If used, this will give a 2x2 distortion matrix, used so that the output exit pupil is
+        on a square grid. Default is a square grid on the entrance pupil.
+    hires : list of np.ndarray of int, optional
+        If given, then instead of the full grid, trace only the cells given;
+        ``hires[0]`` is a 1D array of y-values and ``hires[1]`` is a 1D array of x-values.
+    ovsamp : int, optional
+        Oversamples cells in the entrance pupil by this factor; only used if `hires` is given.
+
+    Attributes
+    ----------
+    N : int
+        Size of ray bundle.
+    N1, N2: int
+        Trimmed size (needed for hires mode; otherwise equal to `N`).
+    x : np.ndarray of float
+        3D array of position of rays, shape (`N1`, `N2`, 4); unit = mm;
+        the last axis is a position so has ``x[:,:,0] == 1``.
+    p : np.ndarray of float
+        3D array of direction of rays, shape (`N1`, `N2`, 4);
+        the last axis is a direction so has ``p[:,:,0] == 0``.
+    s : np.ndarray of float
+        2D array of path length, shape (`N1`, `N2`); unit = mm.
+    n_loc : float
+        Local index of refraction.
+    xan, yan: float
+        Field angles (in degrees).
+    costhetaent: float
+        Projection factor for entrance aperture.
+    open : np.ndarray of bool
+        Has this ray propagated?
+    wl, wlref : float
+        Wavelength and reference wavelength (the latter for geometric trace).
+        Units are mm.
+    E : np.ndarray of complex or None.
+        The electric field (optional, 4D: 2D for array, 1D for input pol, 1D for output pol).
+        Shape is (`N1`, `N2`, 2, 2).
+        None if not used.
+
     """
 
     # forward and reverse transformations
     @classmethod
     def MV(cls, a, b):
-        """Matrix-vector multiplication."""
+        """
+        Matrix-vector multiplication.
+
+        Parameters
+        ----------
+        a : np.ndarray
+            Matrix, shape (4, 4).
+        b : np.ndarray
+            Array of vectors, shape (..., 4).
+
+        Returns
+        -------
+        np.ndarray
+            Product `a` times `b`, acting on last axis, same shape as `b`.
+
+        See Also
+        --------
+        MiV
+            This is the inverse function.
+
+        """
+
         return np.einsum("ij,...j->...i", a, b)
 
     @classmethod
     def MiV(cls, a, b):
-        """Inverse matrix-vector multiplication."""
+        """
+        Inverse matrix-vector multiplication.
+
+        Parameters
+        ----------
+        a : np.ndarray
+            Matrix, shape (4, 4).
+        b : np.ndarray
+            Array of vectors, shape (..., 4).
+
+        Returns
+        -------
+        np.ndarray
+            Product inv(`a`) times `b`, acting on last axis, same shape as `b`.
+
+        See Also
+        --------
+        MV
+            The forward function (``MiV`` is the inverse).
+
+        """
+
         a_ = np.linalg.inv(a)
         a_[0, 0] = 1.0
         a_[0, 1:] = 0.0
@@ -107,19 +240,6 @@ class RayBundle:
         hires=None,
         ovsamp=6,
     ):
-        """
-        Constructor, from a given position xan, yan in WFI coordiantes (in degrees)
-        and the given bundle size (N x N)
-        The 'hasE' argument tells whether to build an E-field or just do the ray trace (False, default)
-        Jacobian will read in a 2 by 2 matrix, defaulting to identity.
-
-        If hires is not None, then goes into hires mode. This should be a list of pixels, with
-        hires[0] being the 1D array of y-values
-        and hires[1] being the 1D array of x-values.
-
-        The pupil oversampling factor is ovsamp; this is only used in hires mode.
-        """
-
         if jacobian is None:
             jacobian = np.array([[1, 0], [0, 1]])
 
@@ -196,16 +316,36 @@ class RayBundle:
             self.E = None
 
     def intersect_surface(self, Trf, Rinv=0.0, K=0.0, update=True):
-        """Gets intersection with a surface with transform matrix Trf and given curvature and conic constant.
+        """
+        Gets intersection of a ray bundle and a conic section surface.
 
-        Updates the path with intersection information (unless update is set to False, in which case just
-        the intersection geometry is returned but the ray positions don't update to the intersection plane).
-        Returns:
+        Updates the path with intersection information (unless `update` is set to False, in which case just
+        the intersection geometry is returned but the ray positions don't update to the intersection surface).
 
-        *  intersection locations (N,N,2) in surface coordiantes
-        *  normal vector (N,N,4) at the intersection.
-        *  normal vector (N,N,2,4) at the intersection.
-        *  path length
+        Parameters
+        ----------
+        Trf : np.ndarray of float
+            The 4x4 transformation matrix for locating the surface.
+        Rinv : float, optional
+            The inverse radius of curvature of the surface; 0 = flat (default), positive = curves toward
+            object +Z, negative = curves toward object -Z.
+        K : float, optional
+            Conic constant (-K = eccentricity^2), 0 = spherical (default), -1 = parabola.
+        update : bool, optional
+            If set to False, only check where the rays hit the surface.
+
+        Returns
+        -------
+        pos_object : np.ndarray of float
+            Object coordinates of where the rays hit the surface; shape (`N`, `N`, 2)
+            (so only object x and y coordinates are returned).
+        dir_global : np.ndarray of float
+            Global unit normal vector of the surface; shape (`N`, `N`, 4).
+            Since this is a direction, ``dir_global[:, :, 0] == 0`, and then the 1, 2, and 3 components
+            correspond to the x, y, and z directions.
+        L : np.ndarray of float
+            2D array of the path lengths traversed to reach the surface.
+
         """
 
         # rotate to surface coordinates
@@ -243,14 +383,39 @@ class RayBundle:
         # return to standard coords
         if update:
             self.x = self.x + L[:, :, None] * self.p
-        return xs_[:, :, 1:3], RayBundle.MV(Trf, norm), L
+
+        pos_object = xs_[:, :, 1:3]
+        dir_global = RayBundle.MV(Trf, norm)
+        return pos_object, dir_global, L
 
     def mask(self, Trf, Rinv, K, R, masklist):
-        """Masks incoming rays at a given surface.
-        The mask has coordinate coordinate transform Trf and radius R (set to None if no outer barrier).
-        The masklist is a list of dictionary obstructions, which have attributes:
-        #    CIR, REX, REY (CODE V codes for shapes)
-        #    ADX, ADY, ARO (CODE V de-centers)
+        """
+        Masks incoming rays at a given surface.
+
+        Parameters
+        ----------
+        Trf : np.ndarray of float
+            The 4x4 transformation matrix for the surface.
+        Rinv : float
+            The inverse radius of curvature of the surface.
+        K : float
+            The conic constant for the surface.
+        R : float or None
+            If not None, mask rays whose intersection points are outside radius `R`.
+        masklist : list of dict
+            A list of obstructions on the surface. The attributes are:
+
+                ``CIR``, ``REX``, ``REY`` (CODE V codes for shapes)
+                ``ADX``, ``ADY``, ``ARO`` (CODE V de-centers)
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        All dimensions are in millimeters.
+
         """
 
         # get where these rays intersect the surface
@@ -309,13 +474,35 @@ class RayBundle:
                 )
 
     def intersect_surface_and_reflect(self, Trf, Rinv=0.0, K=0.0, rCoefs=None, activeZone=None):
-        """Like intersect_surface, but performs the reflection.
+        """
+        Propagates rays to a surface and performs a reflection.
 
-        If rCoefs is given, this is taken to be a function that takes in arrays of incidence angles and
-        returns S- and P-polarized reflection coefficient arrays.
-        Otherwise assumes a perfect reflecting condition.
+        Paramters
+        ---------
+        Trf : np.ndarray of float
+            The 4x4 transformation matrix for the surface.
+        Rinv : float, optional
+            The inverse radius of curvature of the surface. Default = plane.
+        K : float, optional
+            The conic constant for the surface. Default = sphere.
+        rCoefs : function, optional
+            If given, this is a function that takes in an array of incidence angles (1st argument)
+            and a vacuum wavelength (2nd argument) and returns S- and P-polarized reflection
+            coefficient arrays (complex: same shape as angle of incidence).
+            Otherwise assumes a perfect reflecting condition.
+        activeZone : dict, optional
+            A dictionary of CODEV codes for the active region. Valid keys are
+            `CIR``, ``REX``, ``REY``, ``ADX``, ``ADY``, and ``ARO``.
 
-        activeZone is a dictionary (CODE V codes), list thereof, or None.
+        Returns
+        -------
+        None
+
+        See Also
+        --------
+        intersect_surface
+            This function differs in that it also performs the reflection.
+
         """
 
         # get intersection point
@@ -360,7 +547,7 @@ class RayBundle:
             if rCoefs is None:
                 RS = RP = -np.ones((self.N1, self.N2), dtype=np.complex128)
             else:
-                RS, RP = rCoefs(theta_inc)
+                RS, RP = rCoefs(theta_inc, self.wl)
 
             # S-type direction as a 3D vector
             Sdir = np.cross(norm[:, :, 1:], self.p[:, :, 1:])
@@ -384,13 +571,37 @@ class RayBundle:
         self.p = p_out
 
     def intersect_surface_and_refract(self, Trf, Rinv=0.0, K=0.0, n_new=1.0, tCoefs=None, activeZone=None):
-        """Like intersect_surface, but performs a refraction into a new medium with n=n_new.
+        """
+        Propagates rays to a surface and performs a refraction.
 
-        If tCoefs is given, this is taken to be a function that takes in arrays of incidence angles and
-        returns S- and P-polarized transmission coefficient arrays.
-        Otherwise assumes a perfect AR coating.
+        Paramters
+        ---------
+        Trf : np.ndarray of float
+            The 4x4 transformation matrix for the surface.
+        Rinv : float, optional
+            The inverse radius of curvature of the surface. Default = plane.
+        K : float, optional
+            The conic constant for the surface. Default = sphere.
+        n_new : float, optional
+            The index of refraction of the new medium. Default = vacuum.
+        tCoefs : function, optional
+            If given, this is a function that takes in an array of incidence angles (1st argument)
+            and a vacuum wavelength (2nd argument) and returns S- and P-polarized reflection
+            coefficient arrays (complex: same shape as angle of incidence).
+            Otherwise assumes a perfect reflecting condition.
+        activeZone : dict, optional
+            A dictionary of CODEV codes for the active region. Valid keys are
+            `CIR``, ``REX``, ``REY``, ``ADX``, ``ADY``, and ``ARO``.
 
-        activeZone is a dictionary (CODE V codes), list thereof, or None.
+        Returns
+        -------
+        None
+
+        See Also
+        --------
+        intersect_surface
+            This function differs in that it also performs the refraction.
+
         """
 
         # get intersection point
@@ -448,7 +659,7 @@ class RayBundle:
             if tCoefs is None:
                 TS = TP = -np.ones((self.N1, self.N2), dtype=np.complex128)
             else:
-                TS, TP = tCoefs(theta_inc)
+                TS, TP = tCoefs(theta_inc, self.wl)
 
             # S-type direction as a 3D vector
             Sdir = np.cross(norm[:, :, 1:], self.p[:, :, 1:])
@@ -472,14 +683,6 @@ class RayBundle:
         self.p = p_out
 
 
-# This is based on the specifications in:
-# "Opto-Mechanical Definitions", RST-SYS-SPEC-0055, Revision E
-# released by the Configuration Management Office June 11, 2021
-# (not export controlled)
-# Most information is in CODE V format, but some was converted to be
-# usable in this Python script.
-
-
 def _RomanRayBundle(
     xan,
     yan,
@@ -492,23 +695,47 @@ def _RomanRayBundle(
     hires=None,
     ovsamp=6,
 ):
-    """Carries out trace through RST optics.
-    xan, yan : angles in degrees in WFI local field angles
-    N : pupil sampling
-    usefilter : character, one of 'R', 'Z', 'Y', 'J', 'H', 'F', 'K', 'W'
-    hasE : propagate electric field
+    """
+    Carries out trace through RST optics.
 
-    uses wavelength wl (in mm) if given; if it is None uses the central wavelength of that filter
+    Parameters
+    ----------
+    xan, yan : float
+        Angles in degrees in WFI local field angles.
+    N : int
+        Pupil sampling (NxN grid).
+    usefilter : char
+        The RST filter element. One of 'R', 'Z', 'Y', 'J', 'H', 'F', 'K', 'W'.
+    wl : float, optional
+        The wavelength in mm. Default is the central wavelength of that filter.
+    hasE : bool, optional
+        If True, propagate the electric field.
+    width : float, optional
+        The size of the grid for sampling of the entrance pupil, in mm. (Default is good for RST.)
+    jacobian : np.ndarray, optional
+        If used, this will give a 2x2 distortion matrix, used so that the output exit pupil is
+        on a square grid. Default is a square grid on the entrance pupil.
+    hires : list of np.ndarray of int, optional
+        If given, then instead of the full grid, trace only the cells given;
+        ``hires[0]`` is a 1D array of y-values and ``hires[1]`` is a 1D array of x-values.
+    ovsamp : int, optional
+        Oversamples cells in the entrance pupil by this factor; only used if `hires` is given.
 
-    Returns a RayBundle object, with some added information:
-    RB.x_out : shape (2,), location of output ray on FPA [in mm]
-    RB.xyi : shape (N,N,2), coordinates of the initial rays [in mm]
-    RB.u : shape (N,N,2), directions (orthographic projection)
-    RB.s : shape (N,N), optical path length of ray to position s
+    Returns
+    -------
+    psfsim.romantrace.RayBundle
+        The ray bundle object. The following additional information is provided as numpy arrays:
 
-    If hasE is true:
-    RB.E : shape (N,N,2,4), complex, electric field for the 2 initial polarizations and 3 components
-    (last axis 0th component should be 0)
+            RB.x_out : shape (2,), location of output ray on FPA [in mm]
+            RB.xyi : shape (N,N,2), coordinates of the initial rays [in mm]
+            RB.u : shape (N,N,2), directions (orthographic projection)
+            RB.s : shape (N,N), optical path length of ray to position s
+
+        If `hasE` is True, then also provides:
+
+            RB.E : shape (N,N,2,4), complex, electric field for the 2 initial polarizations and 3 components
+           (last axis 0th component should be 0)
+
     """
 
     if jacobian is None:
@@ -865,7 +1092,64 @@ def _RomanRayBundle(
 
 
 def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, jacobian=None, ovsamp=6):
-    """Like _RomanRayBundle, but with multi-resolution mask."""
+    """
+    Carries out trace through RST optics.
+
+    Parameters
+    ----------
+    xan, yan : float
+        Angles in degrees in WFI local field angles.
+    N : int
+        Pupil sampling (NxN grid).
+    usefilter : char
+        The RST filter element. One of 'R', 'Z', 'Y', 'J', 'H', 'F', 'K', 'W'.
+    wl : float, optional
+        The wavelength in mm. Default is the central wavelength of that filter.
+    hasE : bool, optional
+        If True, propagate the electric field.
+    width : float, optional
+        The size of the grid for sampling of the entrance pupil, in mm. (Default is good for RST.)
+    jacobian : np.ndarray, optional
+        If used, this will give a 2x2 distortion matrix, used so that the output exit pupil is
+        on a square grid. Default is a square grid on the entrance pupil.
+    hires : list of np.ndarray of int, optional
+        If given, then instead of the full grid, trace only the cells given;
+        ``hires[0]`` is a 1D array of y-values and ``hires[1]`` is a 1D array of x-values.
+    ovsamp : int, optional
+        Oversamples cells in the entrance pupil by this factor; only used if `hires` is given.
+
+    Returns
+    -------
+    psfsim.romantrace.RayBundle
+        The ray bundle object. The following additional information is provided as numpy arrays:
+
+            RB.x_out : shape (2,), location of output ray on FPA [in mm]
+            RB.xyi : shape (N,N,2), coordinates of the initial rays [in mm]
+            RB.u : shape (N,N,2), directions (orthographic projection)
+            RB.s : shape (N,N), optical path length of ray to position s
+            RS.open : shape (N,N), fraction of that cell that is open (between 0 and 1 inclusive).
+
+        If `hasE` is True, then also provides:
+
+            RB.E : shape (N,N,2,4), complex, electric field for the 2 initial polarizations and 3 components
+           (last axis 0th component should be 0)
+
+    See Also
+    --------
+    _RomanRayBundle
+        The routine "wrapped inside" (this is called once to figure out which cells need to be
+        simulated at higher resolution).
+
+    Notes
+    -----
+    This is based on the specifications in:
+    "Opto-Mechanical Definitions", RST-SYS-SPEC-0055, Revision E
+    released by the Configuration Management Office June 11, 2021
+    (not export controlled).
+    Most information is in CODE V format, but some was converted to be
+    usable in this Python script.
+
+    """
 
     RB = _RomanRayBundle(xan, yan, N, usefilter, wl=wl, hasE=hasE, width=width, jacobian=jacobian, hires=None)
 
@@ -900,45 +1184,133 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
     return RB
 
 
-def selftest():
-    """Test functions"""
+def demo(writefiles=False):
+    """
+    Demo and test functions for romantrace.
 
-    print(
-        build_transform_matrix(
-            xde=-73.371025,
-            yde=127.082343,
-            zde=-299.600000,
-            ade=135.674257,
-            bde=21.969930,
-            cde=159.041636,
-            unit="degree",
-        )
+    Parameters
+    ----------
+    writefiles : bool, optional
+        Write the output files?
+
+    Returns
+    -------
+    None
+
+    """
+
+    # Transformation matrix test
+    Rtrans = build_transform_matrix(
+        xde=-73.371025,
+        yde=127.082343,
+        zde=-299.600000,
+        ade=135.674257,
+        bde=21.969930,
+        cde=159.041636,
+        unit="degree",
     )
+    print(Rtrans)
+    Rtrans_target = np.array(
+        [
+            [1.00000000e00, 0.00000000e00, 0.00000000e00, 0.00000000e00],
+            [-7.33710250e01, -8.66025403e-01, -3.31714146e-01, -3.74119937e-01],
+            [1.27082343e02, -5.00000002e-01, 5.74545746e-01, 6.47994740e-01],
+            [-2.99600000e02, -3.88564025e-09, 7.48239875e-01, -6.63428285e-01],
+        ]
+    )
+    assert np.all(np.abs(Rtrans - Rtrans_target) < 1e-6)
 
+    # Ray bundle test
     RB = RayBundle(-0.071, -0.037, 2)
-
     print("--x--")
     print(RB.x)
     print("--p--")
     print(RB.p)
+    assert np.all(
+        np.abs(
+            RB.x
+            - np.array(
+                [
+                    [
+                        [1.00000000e00, 2.43926855e02, 8.27506293e02, 3.50527931e03],
+                        [1.00000000e00, -8.38604899e02, 2.02506293e02, 3.50527931e03],
+                    ],
+                    [
+                        [1.00000000e00, 8.68903437e02, -2.54984899e02, 3.49445840e03],
+                        [1.00000000e00, -2.13628318e02, -8.79984899e02, 3.49445840e03],
+                    ],
+                ]
+            )
+        )
+        < 1e-4
+    )
+    assert np.all(
+        np.abs(
+            RB.p
+            - np.array(
+                [
+                    [
+                        [0.0, -0.00293232, 0.00755729, -0.99996714],
+                        [0.0, -0.00293232, 0.00755729, -0.99996714],
+                    ],
+                    [
+                        [0.0, -0.00293232, 0.00755729, -0.99996714],
+                        [0.0, -0.00293232, 0.00755729, -0.99996714],
+                    ],
+                ]
+            )
+        )
+        < 1e-5
+    )
 
     # pupils
     RB = RomanRayBundle(-0.399, 0.208, 512, "W", wl=9.27e-4, hasE=True)
-    fits.PrimaryHDU(RB.open.astype(np.int8)).writeto("temp.fits", overwrite=True)
-    fits.PrimaryHDU(np.where(RB.open, RB.s - np.median(RB.s), 0)).writeto("temp-s.fits", overwrite=True)
-    fits.PrimaryHDU(np.where(RB.open, RB.u[:, :, 0], 0)).writeto("temp-u.fits", overwrite=True)
+    if writefiles:
+        fits.PrimaryHDU(RB.open.astype(np.int8)).writeto("temp.fits", overwrite=True)
+        fits.PrimaryHDU(np.where(RB.open, RB.s - np.median(RB.s), 0)).writeto("temp-s.fits", overwrite=True)
+        fits.PrimaryHDU(np.where(RB.open, RB.u[:, :, 0], 0)).writeto("temp-u.fits", overwrite=True)
+    # pupil test
+    frac = np.mean(RB.open)
+    print("frac open **", frac)
+    assert np.abs(frac - 0.5586506525675455) < 1e-3
 
+    # Electric fields
     print("-- E out --")
     print(RB.E[128, 128, :, :])
     print(RB.x[::64, ::64, 1:])
     print(RB.p[::64, ::64, 1:])
     print(RB.u[::64, ::64, :])
+    # test against "correct" answer
+    tmp_arr = np.array(
+        [
+            [0.0 + 0.0j, 0.92894895 + 0.0j, 0.3679539 + 0.0j, 0.04078929 + 0.0j],
+            [0.0 + 0.0j, -0.08449756 + 0.0j, 0.10352705 + 0.0j, 0.99104315 + 0.0j],
+        ]
+    )
+    assert np.all(np.abs(RB.E[128, 128, :, :] - tmp_arr) < 1e-5)
+    out_pos = np.array([766.73306894, -1593.99400015, -473.55384725])
+    assert np.all(np.abs(RB.x[::64, ::64, 1:] - out_pos[None, None, :]) < 0.1)
+    _n = np.shape(RB.u)[0]
+    assert np.all(
+        np.abs(
+            RB.u[:: _n - 1, :: _n - 1, :]
+            - np.array(
+                [
+                    [[-0.1184445, -0.25782568], [-0.2472246, -0.25452657]],
+                    [[-0.11510895, -0.38269087], [-0.243886, -0.37932103]],
+                ]
+            )
+        )
+        < 1e-5
+    )
 
     print("-->", RB.x_out)
 
     print("-- n table --")
     for wl in np.linspace(6e-4, 2.4e-3, 37):
         print(f"{wl:11.5E} {n_Infrasil301(wl):8.6f}")
+    assert np.abs(n_Infrasil301(0.8 / 1000.0) - 1.452973) < 1e-4
+    assert np.abs(n_Infrasil301(2.1 / 1000.0) - 1.436305) < 1e-4
 
     E = RB.E * RB.open[:, :, None, None]
 
@@ -966,8 +1338,5 @@ def selftest():
             E[:, :, 1, 3].imag,
         )
     )
-    fits.PrimaryHDU(im).writeto("pupil_diagnostics.fits", overwrite=True)
-
-
-if __name__ == "__main__":
-    selftest()
+    if writefiles:
+        fits.PrimaryHDU(im).writeto("pupil_diagnostics.fits", overwrite=True)
