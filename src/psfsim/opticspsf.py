@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-import zernike
 from astropy.io import fits
-from romantrace import RomanRayBundle
 from scipy.interpolate import griddata
 
+from . import zernike
+from .romantrace import RomanRayBundle
 from .wfi_coordinate_transformations import fromFPAtoAngle, fromSCAToFPA
 
 
