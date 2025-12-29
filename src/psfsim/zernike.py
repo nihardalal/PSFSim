@@ -7,7 +7,7 @@ def zernike_radial(n, m, rho):
     """
     Cross checked with https://desc-docs.readthedocs.io/en/v0.12.0/notebooks/zernike_eval.html
     MAY HAVE A MINUS SIGN ERROR
-    Compute radial part of Zernike polynomial R_n^m(rho)
+    Compute radial part of Zernike polynomial Rnm(rho)
     Args:
         n: azimuthal order (n >= 0)
         m: radial order (|m| <= n, n-m even)
