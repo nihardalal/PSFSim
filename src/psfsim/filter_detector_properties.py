@@ -1,3 +1,5 @@
+"""Functions to handle the multi-layer AR coating and propagation in detector material."""
+
 import time
 
 import numpy as np
@@ -5,10 +7,33 @@ from numpy import newaxis as na
 
 
 def local_to_FPA_rotation(ux, uy, sgn):
-    """Local -> FPA rotation for electric field."""
+    """
+    Local --> FPA rotation for electric field.
 
-    print("Computing local to FPA rotation.......")
-    start_time = time.time()
+    This constructs an array of 3x3 rotation matrices from {incident ray in yz-plane}
+    --> {focal plane coordinates}. The z-axis is perpendicular to the detector surface
+    in both cases.
+
+    By construction, this function has a discontinuity at u=0. It defaults to 0
+    for unphysical rays (ux, uy outside the unit circule).
+
+    Parameters
+    ----------
+    ux, uy : np.ndarray of float
+         Orthographic projection of ray directions (each component). Should
+         be the same shape.
+    sgn : float
+         Whether to flip z-direction for diagonal rays; should be +1 or -1.
+
+    Returns
+    -------
+    RT : np.ndarray of float
+         Shape is shape of ux + (3, 3). Each entry ends in a rotation matrix.
+
+    """
+
+    # print("Computing local to FPA rotation.......")
+    # start_time = time.time()
     u = np.sqrt((ux**2) + (uy**2))
     mask = u <= 1
     # mask = np.abs(ux) + np.abs(uy) <= 1
@@ -18,24 +43,49 @@ def local_to_FPA_rotation(ux, uy, sgn):
         shape = (1, 1)
     RT = np.zeros(shape + (3, 3), dtype=np.float64)
 
-    RT[mask & (u == 0)] = np.identity(3)
-    RT[mask & (u != 0), 0, 0] = uy[mask & (u != 0)] * sgn / u[mask & (u != 0)]
-    RT[mask & (u != 0), 0, 1] = ux[mask & (u != 0)] / u[mask & (u != 0)]
-    RT[mask & (u != 0), 1, 0] = -(ux[mask & (u != 0)] * sgn / u[mask & (u != 0)])
-    RT[mask & (u != 0), 1, 1] = uy[mask & (u != 0)] / u[mask & (u != 0)]
-    RT[mask & (u != 0), 2, 2] = sgn
+    # RT[mask & (u == 0)] = np.identity(3)
+    # RT[mask & (u != 0), 0, 0] = uy[mask & (u != 0)] * sgn / u[mask & (u != 0)]
+    # RT[mask & (u != 0), 0, 1] = ux[mask & (u != 0)] / u[mask & (u != 0)]
+    # RT[mask & (u != 0), 1, 0] = -(ux[mask & (u != 0)] * sgn / u[mask & (u != 0)])
+    # RT[mask & (u != 0), 1, 1] = uy[mask & (u != 0)] / u[mask & (u != 0)]
+    # RT[mask & (u != 0), 2, 2] = sgn
 
-    end_time = time.time()
-    print(f"Finished computing local to FPA rotation in {end_time-start_time:.3f}")
+    # alternate, somewhat streamlined version of code
+    psi = np.arctan2(uy[mask], ux[mask])
+    cospsi = np.cos(psi)
+    sinpsi = np.sin(psi)
+    RT[mask, 0, 0] = sgn * sinpsi
+    RT[mask, 0, 1] = cospsi
+    RT[mask, 1, 0] = -sgn * cospsi
+    RT[mask, 1, 1] = sinpsi
+    RT[mask, 2, 2] = sgn
+
+    # end_time = time.time()
+    # print(f"Finished computing local to FPA rotation in {end_time-start_time:.3f}")
 
     return RT
 
 
 def polarisation_mode_decomposition(ux, uy, Ex, Ey, Ez, sgn):
-    """Polarization modes"""
+    """
+    Decomposes incident electric field (specified by components along FPA axes) into TE and TM modes.
 
-    # Function to decompose incident electric field (specified by components Ex, Ey, Ez along FPA
-    # axes) into TE and TM modes
+    Parameters
+    ----------
+    ux, uy : np.ndarray of float
+        The orthographic projection of directions of propagation, each is an array.
+    Ex, Ey, Ez : np.ndarray of complex
+        The incident electric field. Same shape as `ux` and `uy`.
+    sgn : float
+        Whether the z-direction of the initial coordinate system should be the same (+1) or
+        opposite (-1) the AR coating coordinate system.
+
+    Returns
+    -------
+    dict of np.ndarray of complex
+        The keys are "TE" and "TM", and each have the same shape as `ux` and `uy`.
+
+    """
 
     u = np.sqrt((ux**2) + (uy**2))
     try:
