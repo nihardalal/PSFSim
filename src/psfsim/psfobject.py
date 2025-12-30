@@ -21,7 +21,7 @@ def parallel_MTF_image(args):
     return MTF_image(xd, yd, imageX, imageY, Intensity_integrated, npix_boundary)
 
 
-interference_filter = FilterDetector(n1=1.5, t1=1.0 / 3, n2=1.43, t2=1.0 / 3, n3=2.0, t3=1.0 / 3, sgn=1)
+interference_filter = FilterDetector([1.5, 1.43, 2.0], [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], 1)
 
 
 class PSFObject:
@@ -48,9 +48,7 @@ class PSFObject:
         self.wavelength = wavelength
         self.npix_boundary = npix_boundary
 
-        self.interference_filter = FilterDetector(
-            n1=1.5, t1=1.0 / 3, n2=1.43, t2=1.0 / 3, n3=2.0, t3=1.0 / 3, sgn=1
-        )
+        self.interference_filter = FilterDetector([1.5, 1.43, 2.0], [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], 1)
         self.postage_stamp_size = postage_stamp_size
 
         # The following sets the ulen of the GeometricOptics object based on the postage_stamp_size if
