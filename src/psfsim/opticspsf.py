@@ -1,3 +1,5 @@
+"""Optics objects."""
+
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -9,7 +11,25 @@ from .wfi_coordinate_transformations import fromFPAtoAngle, fromSCAToFPA
 
 
 def compute_jacobian(u, dx=1.0, dy=1.0):
-    """Computes the Jacobian for entrance --> exit pupil"""
+    """
+    Computes the Jacobian for entrance --> exit pupil.
+
+    Parameters
+    ----------
+    u : np.ndarray of float
+        3D array of exit pupil positions; ``u[iy, ix, ic]`` is the orthographic
+        direction of the outgoing ray in entrance pixel (ix, iy). The components are
+        ic == 0 for the x-component of `u` and ic == 1 for the y-component of `u`.
+    dx, dy : float, optional
+        The entrance pupil grid spacings.
+
+    Returns
+    -------
+    np.ndarray of float
+        The Jacobian, d(u_x,u_y)_out / d(x,y)_in. Shape is (`N`, `N`, 2, 2), where the
+        first 2 axes refer to the shape of `u`, and the second 2 axes are matrix axes.
+
+    """
 
     # Compute gradients for each component
     dux_dx, dux_dy = np.gradient(u[..., 0], dx, dy, axis=(1, 0))
@@ -26,7 +46,25 @@ def compute_jacobian(u, dx=1.0, dy=1.0):
 
 
 class GeometricOptics:
-    """Geometric optics object"""
+    """
+    Geometric optics object.
+
+    Parameters
+    ----------
+    SCAnum : int
+        The SCA number.
+    SCAx, SCAy : float
+        The pixel positions on the SCA (in mm, FPA coordinates relative to the SCA center).
+    wavelength : float, optional
+        The vacuum wavelength in microns.
+    ulen : int, optional
+        The size of array for pupil sampling.
+    ray_trace : bool, optional
+        Whether to use ray tracing.
+    pixelsampling : float, optional
+        Desired FFT-based output pixel sampling in microns.
+
+    """
 
     def __init__(self, SCAnum, SCAx, SCAy, wavelength=0.48, ulen=2048, ray_trace=False, pixelsampling=1.00):
         # sca position in mm

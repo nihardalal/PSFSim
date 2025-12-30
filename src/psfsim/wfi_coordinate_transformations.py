@@ -1,44 +1,87 @@
+"""Utilities for WFI coordinate systems."""
+
 import numpy as np
 
+from . import wfi_data
 
-def fromAngletoFPA(xan, yan, wavelength=0.48):
-    """Field angle to FPA position"""
+
+def from_angle_to_fpa(xan, yan, wavelength=0.48):
+    """
+    Coarse transformation from field angle to FPA position.
+
+    Parameters
+    ----------
+    xan, yan : float
+        Field positions in degrees.
+    wavelength : float, optional
+        Vacuum wavelength in microns.
+
+    Returns
+    -------
+    (float, float)
+         Focal plane position in mm.
+
+    """
 
     # xan, yan in degrees, wavelength in micrometers
-    poly_fit_file_name = "./data/AngletoFPAPoly.npy"
-    poly_fits = np.load(poly_fit_file_name)
-    wavindex = np.where(poly_fits["wavelength"] == wavelength)
-    coeff = poly_fits["coefficients"][wavindex]
-    exponents = poly_fits["exponents"][wavindex]
-    xpowers = xan ** exponents[:, :, 0]
-    ypowers = yan ** exponents[:, :, 1]
-    xterms = coeff[:, :, 0] * xpowers * ypowers
-    yterms = coeff[:, :, 1] * xpowers * ypowers
+    wavindex = np.argmin(wfi_data.wavelength - wavelength)
+    coeff = wfi_data.angle_to_fpa_poly_coefficients[wavindex]
+    powers = xan ** wfi_data.exponents[:, 0] * yan ** wfi_data.exponents[:, 1]
+    xterms = coeff[:, 0] * powers
+    yterms = coeff[:, 1] * powers
     return (np.sum(xterms), np.sum(yterms))
 
 
-def fromFPAtoAngle(FPApos, wavelength=0.48):
-    """FPA position to field angle"""
+def from_fpa_to_angle(fpapos, wavelength=0.48):
+    """
+    Coarse transformation from FPA position to field angle.
+
+    Parameters
+    ----------
+    fpapos : (float, float)
+         Focal plane position in mm.
+    wavelength : float, optional
+        Vacuum wavelength in microns.
+
+    Returns
+    -------
+    (float, float)
+        Field positions in degrees.
+
+    """
 
     # FPAx, FPAy in mm, wavelength in micrometers
-    FPAx = FPApos[0]
-    FPAy = FPApos[1]
-    poly_fit_file_name = "./data/FPAtoAnglePoly.npy"
-    poly_fits = np.load(poly_fit_file_name)
-    wavindex = np.where(poly_fits["wavelength"] == wavelength)
-    coeff = poly_fits["coefficients"][wavindex]
-    exponents = poly_fits["exponents"][wavindex]
-    xpowers = FPAx ** exponents[:, :, 0]
-    ypowers = FPAy ** exponents[:, :, 1]
-    xterms = coeff[:, :, 0] * xpowers * ypowers
-    yterms = coeff[:, :, 1] * xpowers * ypowers
+    FPAx = fpapos[0]
+    FPAy = fpapos[1]
+    wavindex = np.argmin(wfi_data.wavelength - wavelength)
+    coeff = wfi_data.fpa_to_angle_poly_coefficients[wavindex]
+    powers = FPAx ** wfi_data.exponents[:, 0] * FPAy ** wfi_data.exponents[:, 1]
+    xterms = coeff[:, 0] * powers
+    yterms = coeff[:, 1] * powers
     return (np.sum(xterms), np.sum(yterms))
 
 
-def fromSCAToFPA(SCAnum, SCAx, SCAy):
+def from_sca_to_fpa(scanum, scax, scay):
     """
-    Coordinate transformation converting SCA coordinates (in mm) to FPA coordinates (in mm)
+    Coordinate transformation converting SCA to FPA coordinates.
+
+    The "SCA" coordinates are aligned with the SOC "Science" frame (i.e., 180 degrees
+    rotated relative to the FPA frame).
+
+    Parameters
+    ----------
+    scanum : int
+        The SCA number (1 through 18).
+    scax, scay : float
+        SCA coordinates in mm: (0, 0) is the center.
+
+    Returns
+    -------
+    (float, float)
+        The FPA coordinates in mm.
+
     """
+
     xfpa = np.array(
         [
             -22.14,
@@ -83,28 +126,41 @@ def fromSCAToFPA(SCAnum, SCAx, SCAy):
             -51.06,
         ]
     )
-    scIndex = SCAnum - 1
+    sc_index = scanum - 1
     # pixsize = 0.01
     # nside = 4088
-    sca_orient = np.array([-1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1]).astype(np.int16)
-    if np.amin(SCAnum) < 1 or np.amax(SCAnum) > 18:
+    if np.amin(scanum) < 1 or np.amax(scanum) > 18:
         raise ValueError("Invalid SCA Number")
-    return (
-        xfpa[scIndex] + (SCAx * sca_orient[scIndex]),
-        yfpa[scIndex] + (SCAy * sca_orient[scIndex]),
-    )
+    return (xfpa[sc_index] - scax, yfpa[sc_index] - scay)
 
 
-def fromSCAtoAnalysis(SCAnum, SCAx, SCAy):
+def from_sca_to_analysis(scanum, scax, scay):
     """
     Coordinate transformation converting SCA coordinates (in mm) to Analysis coordinates (in microns).
+
+    The "SCA" coordinates are aligned with the SOC "Science" frame (i.e., 180 degrees
+    rotated relative to the FPA frame).
+
     The Analysis coordinates system is defined to be the FPA coordinate system with origin shifted to
-    the center of the SCA
+    the center of the SCA.
+
+    Parameters
+    ----------
+    scanum : int
+        The SCA number (1 through 18).
+    scax, scay : float
+        SCA coordinates in mm: (0, 0) is the center.
+
+    Returns
+    -------
+    (float, float)
+        The analysis coordinates in microns.
+
     """
-    scIndex = SCAnum - 1
+
+    # sc_index = scanum - 1
     # pixsize = 10  # microns
     # nside = 4088
-    sca_orient = np.array([-1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 1]).astype(np.int16)
-    if np.amin(SCAnum) < 1 or np.amax(SCAnum) > 18:
+    if np.amin(scanum) < 1 or np.amax(scanum) > 18:
         raise ValueError("Invalid SCA Number")
-    return (SCAx * sca_orient[scIndex] * 1.0e3, SCAy * sca_orient[scIndex] * 1.0e3)
+    return (-1000.0 * scax, -1000.0 * scay)
