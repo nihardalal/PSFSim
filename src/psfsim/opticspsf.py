@@ -7,7 +7,7 @@ from scipy.interpolate import griddata
 
 from . import zernike
 from .romantrace import RomanRayBundle
-from .wfi_coordinate_transformations import fromFPAtoAngle, fromSCAToFPA
+from .wfi_coordinate_transformations import from_fpa_to_angle, from_sca_to_fpa
 
 
 def compute_jacobian(u, dx=1.0, dy=1.0):
@@ -81,7 +81,7 @@ class GeometricOptics:
         self.scaY = SCAy
         # print(self.scaX, self.scaY)
 
-        self.xout, self.yout = fromSCAToFPA(self.scaNum, self.scaX, self.scaY)
+        self.xout, self.yout = from_sca_to_fpa(self.scaNum, self.scaX, self.scaY)
         self.posOut = np.array([self.xout, self.yout])
 
         # Set up u,v array for computations of Zernicke Polynomials
@@ -98,7 +98,7 @@ class GeometricOptics:
         self.pupilSampling = self.ulen
 
         # Get angular coordinates
-        self.xan, self.yan = fromFPAtoAngle(self.posOut, wavelength=self.wavelength)
+        self.xan, self.yan = from_fpa_to_angle(self.posOut, wavelength=self.wavelength)
 
         self.usefilter = "H"
 
