@@ -4,13 +4,30 @@ import numpy as np
 from psfsim import filter_detector_properties as fdp
 
 
+def test_indices():
+    """Regression test for index of refraction."""
+
+    n = [fdp.n_mercadtel(0.5 + 0.5 * j) for j in range(5)]
+    ntarget = [
+        (3.535003813489665 + 1.397975504523603j),
+        (3.290866600993655 + 0.41166768695546824j),
+        (3.2914586834935 + 0.2761795795767501j),
+        (3.3389167117314136 + 0.17603053538895572j),
+        (3.374851000897359 + 0.05450239626837025j),
+    ]
+
+    print(n)
+    for j in range(5):
+        assert np.abs(n[j] - ntarget[j]) < 1e-3
+
+
 def test_rotation():
     """Test of rotation matrices."""
 
     # Rotation of longitude between FPA (x,y,z) and plane of incidence coordinates.
     s_ = -0.2 * np.arange(-2, 3)
     ux, uy = np.meshgrid(s_, s_)
-    RT = fdp.local_to_FPA_rotation(ux, uy, 1)
+    RT = fdp.local_to_fpa_rotation(ux, uy, 1)
     assert np.shape(RT) == (5, 5, 3, 3)
     assert np.all(
         np.abs(
@@ -19,7 +36,7 @@ def test_rotation():
         )
         < 1e-5
     )
-    RT = fdp.local_to_FPA_rotation(ux, uy, -1)
+    RT = fdp.local_to_fpa_rotation(ux, uy, -1)
     assert np.all(
         np.abs(
             RT[0, 1, :, :]
@@ -63,3 +80,34 @@ def test_rotation():
             assert np.abs(d["TM"][iy, ix]) < 1.00001
             # and check 90 deg phase
             assert np.abs(d["TM"][iy, ix] / d["TE"][iy, ix] + 1j) < 1e-5
+
+
+def test_arcoat():
+    """Test for AR coating function."""
+
+    # make grid
+    s_ = -0.2 * np.arange(-2, 3)
+    ux, uy = np.meshgrid(s_, s_)
+    nl = 16
+    ll = np.linspace(0.5, 2.0, nl)
+    sgn = 1.0
+
+    # simple case
+    arcoat = fdp.FilterDetector([1.5, 2.0], [0.3, 0.6], sgn)
+    for j in range(nl):
+        Ex1, Ey1, Ez1 = arcoat.transmitted_E(ll[j], ux, uy, 2.0)
+        assert np.abs(Ez1[2, 2, 0]) < 1.0e-2
+
+    print(Ex1[0, 1, 0], Ey1[0, 1, 0], Ez1[0, 1, 0])
+
+    # regression test
+    assert np.abs(615039126.5069386 + 451425661.46545035j - Ex1[0, 1, 0]) < 100.0
+    assert np.abs(-1801656306.183906 - 1331012972.7661047j - Ey1[0, 1, 0]) < 100.0
+    assert np.abs(187252445.03809273 + 123562816.98367552j - Ez1[0, 1, 0]) < 100.0
+
+    # check that if we split a layer we get the same answer
+    arcoat2 = fdp.FilterDetector([1.5, 2.0, 2.0], [0.3, 0.3, 0.3], sgn)
+    Ex2, Ey2, Ez2 = arcoat2.transmitted_E(ll[-1], ux, uy, 2.0)
+    assert np.all(np.abs(Ex1 - Ex2) < 1.0)
+    assert np.all(np.abs(Ey1 - Ey2) < 1.0)
+    assert np.all(np.abs(Ez1 - Ez2) < 1.0)
