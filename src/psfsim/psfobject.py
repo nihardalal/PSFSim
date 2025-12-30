@@ -8,7 +8,7 @@ from scipy.fft import ifft2
 from scipy.signal import fftconvolve
 
 from . import wfi_coordinate_transformations as wfi
-from .filter_detector_properties import FilterDetector, local_to_FPA_rotation
+from .filter_detector_properties import FilterDetector, local_to_fpa_rotation
 from .mtf import MTF, MTF_image, MTF_SCA_postage_stamp
 from .opticspsf import GeometricOptics
 from .zernike import noll_to_zernike, zernike
@@ -141,7 +141,7 @@ class PSFObject:
         E_local[self.mask, 1] = -np.sqrt(1 - self.u[self.mask] ** 2) * A_TM
         E_local[self.mask, 2] = self.u[self.mask] * A_TM
 
-        local_to_FPA = local_to_FPA_rotation(self.uX, self.uY, sgn=1)
+        local_to_FPA = local_to_fpa_rotation(self.uX, self.uY, sgn=1)
 
         E_FPA_x = np.zeros_like(self.uX, dtype=np.complex128)
         E_FPA_y = np.zeros_like(self.uX, dtype=np.complex128)
