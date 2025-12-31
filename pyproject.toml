@@ -95,3 +95,7 @@ ignore = [
 
 [tool.coverage.run]
 omit=["src/psfsim/_version.py"]
+
+
+[tool.setuptools.package-data]
+"psfsim.data" = ["wim_zernikes_cycle9.csv.gz"]
