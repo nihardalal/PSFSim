@@ -180,6 +180,8 @@ class GeometricOptics:
         The grid spacing in orthographic coordinates at the exit pupil.
     path_difference : np.ndarray of float
         The wavefront map in microns. Shape (`ulen`, `ulen`).
+    rb : psfsim.romantrace.RayBundle
+        The ray trace object.
 
     Methods
     -------
@@ -232,7 +234,7 @@ class GeometricOptics:
         self.pupilSampling = self.ulen
 
         # Get angular coordinates
-        self.xan, self.yan = from_fpa_to_angle(self.posOut, wavelength=self.wavelength)
+        self.xan, self.yan = from_fpa_to_angle(self.posOut, wavelength=self.wavelength, ray_trace=ray_trace)
 
         self.usefilter = "H"
 
@@ -375,18 +377,18 @@ class GeometricOptics:
 
         """
 
+        jacobian = np.linalg.inv(-self.pupilLength * self.distortionMatrix)
+        self.rb = rb = RomanRayBundle(
+            self.xan,
+            self.yan,
+            self.pupilSampling,
+            self.usefilter,
+            width=self.samplingwidth,
+            wl=self.wavelength * 0.001,
+            hasE=True,
+            jacobian=jacobian,
+        )
         if use_ray_trace:
-            jacobian = np.linalg.inv(-self.pupilLength * self.distortionMatrix)
-            rb = RomanRayBundle(
-                self.xan,
-                self.yan,
-                self.pupilSampling,
-                self.usefilter,
-                width=self.samplingwidth,
-                wl=self.wavelength * 0.001,
-                hasE=True,
-                jacobian=jacobian,
-            )
             mask = rb.open
             self.pupil_mask_u = rb.u
             self.pupil_mask_s = rb.s

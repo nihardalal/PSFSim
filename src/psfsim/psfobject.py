@@ -42,6 +42,8 @@ class PSFObject:
         The oversampling factor for the PSF (number of samples per native pixel).
     npix_boundary : int, optional
         ?
+    use_postage_stamp_size : int, optional
+        Force pupil postage stamp size instead of internal calculation.
     ray_trace : bool, optional
         Whether to use ray tracing. (Only turn off for testing.)
     add_focus : variable
@@ -59,6 +61,13 @@ class PSFObject:
     optics : psfsim.opticspsf.GeometricOptics
          The Geometric Optics object.
 
+    Methods
+    -------
+    __init__
+        Constructor.
+    get_optical_psf
+        Gets the optical PSF (no detector effects).
+
     """
 
     def __init__(
@@ -70,7 +79,7 @@ class PSFObject:
         postage_stamp_size=31,
         ovsamp=10,
         npix_boundary=1,
-        use_postage_stamp_size=False,
+        use_postage_stamp_size=None,
         ray_trace=True,
         add_focus=None,
     ):
@@ -82,10 +91,9 @@ class PSFObject:
 
         # The following sets the ulen of the GeometricOptics object based on the postage_stamp_size if
         # use_postage_stamp_size is True.
+        self.ulen = 2048  # default value
         if use_postage_stamp_size:
-            self.ulen = int(self.get_ulen(ps=postage_stamp_size)) + 1
-        else:
-            self.ulen = 2048  # default value
+            self.ulen = use_postage_stamp_size
 
         self.optics = GeometricOptics(
             scanum, scax, scay, wavelength, self.ulen, ray_trace=ray_trace, pixelsampling=10.0 / ovsamp
@@ -134,27 +142,36 @@ class PSFObject:
 
         # self.MTF_array = diffusion_green(self.sX, self.sY)
 
-    def get_ulen(self, ps=20):
-        """
-        Returns the required ulen for a postage stamp of size ps in pixels
-        """
-        pixsize = 10  # pixel size in microns
-        smin = -ps * pixsize
-        smax = (
-            ps * pixsize
-        )  # Note that uX and uY have to be fourier duals to twice the size of the postage stamp to
-        # avoid aliasing from periodic boundary conditions
+    #    def get_ulen(self, ps=20):
+    #       # Returns the required ulen for a postage stamp of size ps in pixels.
+    #
+    #        pixsize = wfi_data.pix  # pixel size in microns
+    #        smin = -ps * pixsize
+    #        smax = (
+    #            ps * pixsize
+    #        )  # Note that uX and uY have to be fourier duals to twice the size of the postage stamp to
+    #        # avoid aliasing from periodic boundary conditions
+    #
+    #        ulen = 2 * (smax - smin) / self.wavelength
+    #        return ulen
 
-        ulen = 2 * (smax - smin) / self.wavelength
-        return ulen
-
-    def get_Optical_PSF(self, normalise=True, A_TE=1.0e10, A_TM=1.0e10):
+    def get_optical_psf(self, normalise=True, A_TE=1.0e10, A_TM=1.0e10):
         """
+        Gets the optical PSF (no detector effects).
+
         Returns values of the
         optical PSF on the SCA surface in the postage stamp surrounding the point (SCAx, SCAy) in the
         SCA. This function is added for testing purposes and to assess the impact of the interference
         filter on the PSF and charge diffusion through the HgCdTe layer. Note that the optical PSF
         includes the effects of diffraction and pupil mask and is normalised to total flux of 1.
+
+        Parameters
+        ----------
+        normalise : bool, optional
+            Currently has no effect.
+        A_TE, A_TM : complex, optional
+            Input EM wave amplitudes.
+
         """
 
         # prefactor = \

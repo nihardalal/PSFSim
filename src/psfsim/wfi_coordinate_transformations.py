@@ -3,9 +3,10 @@
 import numpy as np
 
 from . import wfi_data
+from .romantrace import _RomanRayBundle
 
 
-def from_angle_to_fpa(xan, yan, wavelength=0.48):
+def _from_angle_to_fpa(xan, yan, wavelength=0.48):
     """
     Coarse transformation from field angle to FPA position.
 
@@ -32,7 +33,37 @@ def from_angle_to_fpa(xan, yan, wavelength=0.48):
     return (np.sum(xterms), np.sum(yterms))
 
 
-def from_fpa_to_angle(fpapos, wavelength=0.48):
+def from_angle_to_fpa(xan, yan, wavelength=0.48, ray_trace=True, use_filter="H"):
+    """
+    Full transformation from field angle to FPA position.
+
+    Parameters
+    ----------
+    xan, yan : float
+        Field positions in degrees.
+    wavelength : float, optional
+        Vacuum wavelength in microns.
+    ray_trace : bool, optional
+        Whether to use ray tracing. (Default recommended for accuracy.)
+    use_filter : char, optional
+        One-character code for which filter to use.
+
+    Returns
+    -------
+    (float, float)
+         Focal plane position in mm.
+
+    """
+
+    if not ray_trace:
+        return _from_angle_to_fpa(xan, yan, wavelength=wavelength)
+
+    # below here, we are doing the ray tracing
+    xpos = _RomanRayBundle(xan, yan, 16, use_filter).x_out
+    return (xpos[0], xpos[1])
+
+
+def _from_fpa_to_angle(fpapos, wavelength=0.48):
     """
     Coarse transformation from FPA position to field angle.
 
@@ -59,6 +90,43 @@ def from_fpa_to_angle(fpapos, wavelength=0.48):
     xterms = coeff[:, 0] * powers
     yterms = coeff[:, 1] * powers
     return (np.sum(xterms), np.sum(yterms))
+
+
+def from_fpa_to_angle(fpapos, wavelength=0.48, ray_trace=True, use_filter="H"):
+    """
+    Full transformation from FPA position to field angle.
+
+    Parameters
+    ----------
+    fpapos : (float, float)
+         Focal plane position in mm.
+    wavelength : float, optional
+        Vacuum wavelength in microns.
+    ray_trace : bool, optional
+        Whether to use ray tracing. (Default recommended for accuracy.)
+    use_filter : char, optional
+        One-character code for which filter to use.
+
+    Returns
+    -------
+    (float, float)
+        Field positions in degrees.
+
+    """
+
+    xan, yan = _from_fpa_to_angle(fpapos, wavelength=wavelength)
+    if not ray_trace:
+        return (xan, yan)  # don't iteratively improve with ray trace
+
+    # iterate until we find a field position in the right place
+    for _ in range(4):
+        xpos = _RomanRayBundle(xan, yan, 16, use_filter).x_out
+        xerr = fpapos[0] - xpos[0]
+        yerr = fpapos[1] - xpos[1]
+        xan += xerr * 0.0030556
+        yan -= yerr * 0.0030556
+
+    return (xan, yan)
 
 
 def from_sca_to_fpa(scanum, scax, scay):

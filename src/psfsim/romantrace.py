@@ -2,8 +2,6 @@ import numpy as np
 import scipy
 from astropy.io import fits
 
-version = "250506"
-
 ### begin material data ###
 
 
@@ -1112,9 +1110,6 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
     jacobian : np.ndarray, optional
         If used, this will give a 2x2 distortion matrix, used so that the output exit pupil is
         on a square grid. Default is a square grid on the entrance pupil.
-    hires : list of np.ndarray of int, optional
-        If given, then instead of the full grid, trace only the cells given;
-        ``hires[0]`` is a 1D array of y-values and ``hires[1]`` is a 1D array of x-values.
     ovsamp : int, optional
         Oversamples cells in the entrance pupil by this factor; only used if `hires` is given.
 
@@ -1180,6 +1175,11 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
     )
     print(n, np.shape(RB_hires.open))
     RB.open[bdycells[0], bdycells[1]] = np.mean(RB_hires.open.astype(np.float64), axis=1)
+
+    # force to zeros where closed
+    for i in range(2):
+        for j in range(2):
+            RB.E[:, :, i, j] = np.where(RB.open > 1e-16, RB.E[:, :, i, j], 0.0)
 
     return RB
 

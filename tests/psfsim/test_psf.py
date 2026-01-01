@@ -22,4 +22,6 @@ def test_psfobject():
     )
 
     assert np.abs(obj.dx - 10.0 / n) < 1.0e-3
-    # assert obj.npix_boundary == -1
+
+    print(obj.ulen)
+    # assert obj.npix_boundary == -1 # <-- used to force failure so we can look at the logs
