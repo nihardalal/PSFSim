@@ -160,6 +160,44 @@ class GeometricOptics:
     pixelsampling : float, optional
         Desired FFT-based output pixel sampling in microns.
 
+    Attributes
+    ----------
+    wavelength : float
+        The vacuum wavelength in microns.
+    scanum : int
+        The SCA number.
+    scax, scay : float
+        The pixel positions on the SCA (in mm, FPA coordinates relative to the SCA center).
+    xan, yan : float
+        The field angles in degrees.
+    usefilter : str
+        The filter as a 1-character string.
+    ulen : int
+        The FFT length (and pupil grid size).
+    ucen, vcen : float
+        The orthographic coordinates at the exit pupil of the center of the pupil image.
+    du : float
+        The grid spacing in orthographic coordinates at the exit pupil.
+    path_difference : np.ndarray of float
+        The wavefront map in microns. Shape (`ulen`, `ulen`).
+
+    Methods
+    -------
+    __init__
+        Constructor.
+    u_array
+        Gets the 2D array of u.
+    v_array
+        Gets the 2D array of v.
+    compute_distortion_matrix
+        Computes the distortion matrix.
+    compute_determinant
+        Determinant of distortion matrix.
+    load_pupil_mask
+        Loads the pupil mask.
+    path_diff
+        Path difference map.
+
     """
 
     def __init__(self, scanum, scax, scay, wavelength=0.48, ulen=2048, ray_trace=True, pixelsampling=1.00):
@@ -368,7 +406,7 @@ class GeometricOptics:
         Returns
         -------
         np.ndarray of float
-            The path difference map; same shape as ``self.uArray``.
+            The path difference map; same shape as ``self.u_array()``.
             Units of microns.
 
         """
@@ -386,7 +424,6 @@ class GeometricOptics:
         localx = mydata["local_x"][mask1]
         localy = mydata["local_y"][mask1]
         points = np.stack((localx, localy)).T
-        print(">>", points)
         # print(points)
         path_diff = 0
         for i in range(22):
@@ -394,12 +431,6 @@ class GeometricOptics:
             zString = f"Z{zIndex}"
             zernCoeffsToInterpolate = np.asarray(mydata[zString][mask1])
             zernCoeff = altgriddata(points, zernCoeffsToInterpolate, (self.scax, self.scay))
-            print("-", i, zernCoeff)
-            if i == 15:
-                print("XXXXX")
-                print("points", points)
-                print("zernCoeffsToInterpolate", zernCoeffsToInterpolate)
-                print("(self.scax, self.scay)", (self.scax, self.scay))
             nZern, mZern = zernike.noll_to_zernike(i + 1)
             # print(">>>", zernike.zernike(nZern, mZern, self.urhoPolar, self.uthetaPolar))
             path_diff += zernCoeff * zernike.zernike(

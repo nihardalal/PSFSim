@@ -1,76 +1,208 @@
+"""Detector MTF functions."""
+
 import numpy as np
 from numba import njit, prange
 from numpy import newaxis as na
+from scipy.signal import fftconvolve
+from scipy.special import erf
+
+# Pixel properties
+from .wfi_data import cdpar, nside, pix
 
 
-@njit
-def MTF(Xd, Yd, x2=0, y2=0):
+def diffusion_green(xd, yd, x2=0.0, y2=0.0):
     """
-    Charge diffusion modulation transfer function as a function of Analysis coordinates in mm.
+    Charge diffusion Green's function as a function of Analysis coordinates in mm.
+
     The MTF is calculated using a three-gaussian approximation of the charge diffusion in the SCA,
     where the parameters are derived from the charge diffusion model
-    described in Emily's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632
-    Note that the arguments Xd, Yd, x2, y2 should be in microns.
-    (x2, y2) is the center of the charge diffusion kernel.
-    Returns the value of the MTF at the point (Xd, Yd) due to a point source at (x2, y2)
+    described in Emily Macbeth's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632.
+
+    Parameters
+    ----------
+    xd, yd : float or np.ndarray of float
+        The coordinates where the Green's function is to be computed.
+        Must be the same shape, or broadcastable to the same shape.
+    x2, y2 : float, optional
+        The location where the charges are generated.
+
+    Returns
+    -------
+    float or np.ndarray of float
+        The Green's function at the indicated positions, same shape as `xd`.
 
     """
 
-    pix = 10  # pixel size in microns
-    sigma_s = 0.3279 * pix  # sigma of the charge diffusion in pixel units
-    sigma_s = sigma_s
-    w1 = 0.17519
-    w2 = 0.53146
-    w3 = 0.29335
-    c1 = 0.4522
-    c2 = 0.8050
-    c3 = 1.4329
+    sigma_s = cdpar["sigma_s"]
 
-    sigma1 = c1 * sigma_s
-    sigma2 = c2 * sigma_s
-    sigma3 = c3 * sigma_s
+    sq = (xd - x2) ** 2 + (yd - y2) ** 2
 
-    XD = Xd - x2
-    YD = Yd - y2
+    term = 0.0
+    for j in range(len(cdpar["w"])):
+        sigmaj = cdpar["c"][j] * sigma_s
+        term += cdpar["w"][j] * np.exp(-(sq / (2.0 * sigmaj**2))) * (1.0 / (2.0 * np.pi * sigmaj**2))
 
-    MTF1 = w1 * np.exp(-((XD**2 + YD**2) / (2 * sigma1**2))) * (1 / (2 * np.pi * sigma1**2))
-    MTF2 = w2 * np.exp(-((XD**2 + YD**2) / (2 * sigma2**2))) * (1 / (2 * np.pi * sigma2**2))
-    MTF3 = w3 * np.exp(-((XD**2 + YD**2) / (2 * sigma3**2))) * (1 / (2 * np.pi * sigma3**2))
-    MTF_total = MTF1 + MTF2 + MTF3
-    return MTF_total
+    return term
 
 
-def MTF_array(pixelsampling=1.0, ps=6):
+def diffusion_prob(xd, yd, width=10.0, x2=0.0, y2=0.0):
     """
-    Function to compute the profile of the modulation tranfer function in analysis coordinates at a
-    spacing of PSFObject.dsX microns over a grid of size ps*pix x ps*pix microns, where pix is the
-    native pixel size of 10 microns.
+    Charge diffusion probability as a function of Analysis coordinates in mm.
+
+    This is the integral of the Green's function over a square of width `width` centered on (0, 0).
+
+    The MTF is calculated using a three-gaussian approximation of the charge diffusion in the SCA,
+    where the parameters are derived from the charge diffusion model
+    described in Emily Macbeth's paper and the three-gaussian approximation in https://arxiv.org/pdf/2501.05632.
+
+    Parameters
+    ----------
+    xd, yd : float or np.ndarray of float
+        The coordinates where the Green's function is to be computed.
+        Must be the same shape, or broadcastable to the same shape.
+    width : float, int
+        The width of the integration zone in microns (on each axis).
+    x2, y2 : float, optional
+        The location where the charges are generated.
+
+    Returns
+    -------
+    float or np.ndarray of float
+        The integrated probability centered at the indicated positions, same shape as `xd`.
+
+    See Also
+    --------
+    diffusion_green
+        The probability density function.
+
     """
-    pix = 10  # pixel size in microns
-    sigma_s = 0.3279 * pix  # sigma of the charge diffusion in pixel units
-    sigma_s = sigma_s
-    w1 = 0.17519
-    w2 = 0.53146
-    w3 = 0.29335
-    c1 = 0.4522
-    c2 = 0.8050
-    c3 = 1.4329
 
-    sigma1 = c1 * sigma_s
-    sigma2 = c2 * sigma_s
-    sigma3 = c3 * sigma_s
+    sigma_s = cdpar["sigma_s"]
 
-    xd = np.arange(-ps * pix / 2, (ps * pix / 2) + pixelsampling, pixelsampling)
-    yd = np.arange(-ps * pix / 2, (ps * pix / 2) + pixelsampling, pixelsampling)
-    Xd, Yd = np.meshgrid(xd, yd, indexing="ij")
-    MTF1 = w1 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma1**2))) * (1 / (2 * np.pi * sigma1**2))
-    MTF2 = w2 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma2**2))) * (1 / (2 * np.pi * sigma2**2))
-    MTF3 = w3 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma3**2))) * (1 / (2 * np.pi * sigma3**2))
-    MTF_total = MTF1 + MTF2 + MTF3
-    return (Xd, Yd, MTF_total)
+    cut_xm = xd - x2 - width / 2.0
+    cut_xp = xd - x2 + width / 2.0
+    cut_ym = yd - y2 - width / 2.0
+    cut_yp = yd - y2 + width / 2.0
+
+    term = 0.0
+    for j in range(len(cdpar["w"])):
+        sigmaj2 = cdpar["c"][j] * sigma_s * np.sqrt(2.0)
+        term += (
+            0.25
+            * cdpar["w"][j]
+            * (erf(cut_xp / sigmaj2) - erf(cut_xm / sigmaj2))
+            * (erf(cut_yp / sigmaj2) - erf(cut_ym / sigmaj2))
+        )
+
+    return term
 
 
-def MTF_image(xd, yd, sX, sY, intensity, npix_boundary=1):
+def intensity_to_image(intensity, x_in, y_in, x_out, y_out, n_out, dx, reflect=True, tophat=True):
+    """
+    Function to convolve an intensity image with the Green's function.
+
+    Parameters
+    ----------
+    intensity : np.ndarray of float
+        The intensity image.
+    x_in, y_in : float
+        The center of the intensity input image in microns.
+    x_out, y_out: float
+        The center of the desired output image in microns.
+    n_out : int
+        The desired output postage stamp size.
+    dx : float
+        The grid spacing in microns.
+    reflect : bool, optional
+        Reflect at the detector active region edge.
+    tophat : bool, optional
+        Integrate over the pixel tophat. Note that if this option is chosen, the unit of
+        the output is the unit of the intensity times micron^2.
+
+    Returns
+    -------
+    np.ndarray of float
+        The output image.
+
+    """
+
+    (ny_in, nx_in) = np.shape(intensity)
+
+    # List of positions to reflect.
+    pos = [(0, 0)]
+    if reflect:
+        x_sgn = 1 if x_in > 0 else -1
+        y_sgn = 1 if y_in > 0 else -1
+        pos = [(0, 0), (x_sgn, 0), (0, y_sgn), (x_sgn, y_sgn)]
+    hds = pix * nside / 2.0  # coordinate of side
+
+    # Sum over reflected images
+    im_out = np.zeros((n_out, n_out))
+    for p in pos:
+        ii = np.copy(intensity)
+        if p[0] % 2 != 0:
+            ii = np.fliplr(ii)
+        if p[1] % 2 != 0:
+            ii = np.flipud(ii)
+        x_refl = p[0] * hds + (-1) ** p[0] * (x_in - p[0] * hds)
+        y_refl = p[1] * hds + (-1) ** p[1] * (y_in - p[1] * hds)
+
+        # Now do the convolution
+        delta_x_ctr = x_out - x_refl
+        delta_y_ctr = y_out - y_refl
+        nyvals = ny_in + n_out - 1
+        nxvals = nx_in + n_out - 1
+        dyvals = np.linspace(
+            delta_y_ctr - dx * (nyvals - 1.0) / 2.0, delta_y_ctr + dx * (nyvals - 1.0) / 2.0, nyvals
+        )
+        dxvals = np.linspace(
+            delta_x_ctr - dx * (nxvals - 1.0) / 2.0, delta_x_ctr + dx * (nxvals - 1.0) / 2.0, nxvals
+        )
+        if tophat:
+            g_offset = diffusion_prob(dxvals[None, :], dyvals[:, None], width=pix)
+        else:
+            g_offset = diffusion_green(dxvals[None, :], dyvals[:, None])
+        im_out[:, :] += fftconvolve(g_offset, ii, mode="valid")
+
+    return im_out
+
+
+### not sure if we need things after here
+
+MTF = diffusion_green  # alias, will delete if not needed later
+
+
+# def MTF_array(pixelsampling=1.0, ps=6):
+#
+#     Function to compute the profile of the modulation tranfer function in analysis coordinates at a
+#     spacing of PSFObject.dsX microns over a grid of size ps*pix x ps*pix microns, where pix is the
+#     native pixel size of 10 microns.
+#
+#     pix = 10  # pixel size in microns
+#     sigma_s = 0.3279 * pix  # sigma of the charge diffusion in pixel units
+#     sigma_s = sigma_s
+#     w1 = 0.17519
+#     w2 = 0.53146
+#     w3 = 0.29335
+#     c1 = 0.4522
+#     c2 = 0.8050
+#     c3 = 1.4329
+#
+#     sigma1 = c1 * sigma_s
+#     sigma2 = c2 * sigma_s
+#     sigma3 = c3 * sigma_s
+
+#     xd = np.arange(-ps * pix / 2, (ps * pix / 2) + pixelsampling, pixelsampling)
+#     yd = np.arange(-ps * pix / 2, (ps * pix / 2) + pixelsampling, pixelsampling)
+#     Xd, Yd = np.meshgrid(xd, yd, indexing="ij")
+#     MTF1 = w1 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma1**2))) * (1 / (2 * np.pi * sigma1**2))
+#     MTF2 = w2 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma2**2))) * (1 / (2 * np.pi * sigma2**2))
+#     MTF3 = w3 * np.exp(-((Xd**2 + Yd**2) / (2 * sigma3**2))) * (1 / (2 * np.pi * sigma3**2))
+#     MTF_total = MTF1 + MTF2 + MTF3
+#     return (Xd, Yd, MTF_total)
+
+
+def diffusion_green_image(xd, yd, sX, sY, intensity, npix_boundary=1):
     """
     Function to compute the detector response at the detector on (SCAx, SCAy) from an image with
     analysis coordinates sX, sY (meshgrid) and the intensity profile given by Intensity.
@@ -119,6 +251,9 @@ def MTF_image(xd, yd, sX, sY, intensity, npix_boundary=1):
     )
 
     return np.sum(MTF_array * dsX * dsY)
+
+
+MTF_image = diffusion_green_image  # alias, will delete if not needed later
 
 
 def MTF_image_vec(psX, psY, sX, sY, intensity, npix_boundary=1):

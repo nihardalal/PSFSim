@@ -9,7 +9,7 @@ from scipy.signal import fftconvolve
 
 from . import wfi_coordinate_transformations as wfi
 from .filter_detector_properties import FilterDetector, local_to_fpa_rotation
-from .mtf import MTF, MTF_image, MTF_SCA_postage_stamp
+from .mtf_diffusion import MTF_image, MTF_SCA_postage_stamp
 from .opticspsf import GeometricOptics
 from .zernike import noll_to_zernike, zernike
 
@@ -25,26 +25,55 @@ interference_filter = FilterDetector([1.5, 1.43, 2.0], [1.0 / 3.0, 1.0 / 3.0, 1.
 
 
 class PSFObject:
-    """Main PSF object class"""
+    """
+    Monochromatic PSF object class.
+
+    Parameters
+    ----------
+    scanum : int
+        The SCA number.
+    scax, scay : float
+        The pixel positions on the SCA (in mm, FPA coordinates relative to the SCA center).
+    wavelength : float, optional
+        The vacuum wavelength in microns.
+    postage_stamp_size : int, optional
+        The length of the side of the square postage stamp in native pixels.
+    ovsamp : int, optional
+        The oversampling factor for the PSF (number of samples per native pixel).
+    npix_boundary : int, optional
+        ?
+    ray_trace : bool, optional
+        Whether to use ray tracing. (Only turn off for testing.)
+    add_focus : variable
+        Parameter for adding focus.
+
+
+    Attributes
+    ----------
+    wavelength : float
+        The wavelength
+    interference_filter : psfsim.filter_detector_properties.FilterDetector
+        The interference filter object.
+    ulen : int
+         The length of the FFTs.
+    optics : psfsim.opticspsf.GeometricOptics
+         The Geometric Optics object.
+
+    """
 
     def __init__(
         self,
-        SCAnum,
-        SCAx,
-        SCAy,
+        scanum,
+        scax,
+        scay,
         wavelength=0.48,
         postage_stamp_size=31,
+        ovsamp=10,
         npix_boundary=1,
         use_postage_stamp_size=False,
         ray_trace=True,
         add_focus=None,
     ):
-        """
-        Class denoting a monochromatic PSF -- should have a GeometricOptics object and a wavelength
-        (and possibly others) postage_stamp_size: length of the side of the square postage stamp in
-        pixels
-        """
-
         self.wavelength = wavelength
         self.npix_boundary = npix_boundary
 
@@ -58,40 +87,44 @@ class PSFObject:
         else:
             self.ulen = 2048  # default value
 
-        self.Optics = GeometricOptics(SCAnum, SCAx, SCAy, wavelength, self.ulen, ray_trace=ray_trace)
-        self.uX, self.uY = (
-            self.Optics.uArray,
-            self.Optics.vArray,
+        self.optics = GeometricOptics(
+            scanum, scax, scay, wavelength, self.ulen, ray_trace=ray_trace, pixelsampling=10.0 / ovsamp
+        )
+        self.ux, self.uy = (
+            self.optics.u_array(),
+            self.optics.v_array(),
         )  # np.meshgrid(self.Optics.uX, self.Optics.uY, indexing='ij')
-        self.u = np.sqrt(self.uX**2 + self.uY**2)
+        self.u = np.sqrt(self.ux**2 + self.uy**2)
         self.mask = self.u <= 1
 
-        sX = (self.wavelength / (self.Optics.umax - self.Optics.umin)) * (
-            -(self.Optics.ulen / 2.0) + np.array(range(self.Optics.ulen))
-        )  # postage stamp coordinates along the FPA axes in microns
-        sY = (self.wavelength / (self.Optics.umax - self.Optics.umin)) * (
-            -(self.Optics.ulen / 2.0) + np.array(range(self.Optics.ulen))
-        )  # postage stamp coordinates along the FPA axes in microns
+        # sX = (self.wavelength / (self.optics.umax - self.optics.umin)) * (
+        #     -(self.optics.ulen / 2.0) + np.array(range(self.optics.ulen))
+        # )  # postage stamp coordinates along the FPA axes in microns
+        # sY = (self.wavelength / (self.optics.umax - self.optics.umin)) * (
+        #     -(self.optics.ulen / 2.0) + np.array(range(self.optics.ulen))
+        # )  # postage stamp coordinates along the FPA axes in microns
 
-        self.sX, self.sY = np.meshgrid(sX, sY, indexing="ij")
+        # self.sX, self.sY = np.meshgrid(sX, sY, indexing="ij")
 
-        self.dsX = self.Optics.wavelength / (
-            self.Optics.umax - self.Optics.umin
-        )  # postage stamp pixel size in microns
-        self.dsY = self.Optics.wavelength / (
-            self.Optics.umax - self.Optics.umin
-        )  # postage stamp pixel size in microns
+        # self.dsX = self.optics.wavelength / (
+        #     self.optics.umax - self.optics.umin
+        # )  # postage stamp pixel size in microns
+        # self.dsY = self.optics.wavelength / (
+        #     self.optics.umax - self.optics.umin
+        # )  # postage stamp pixel size in microns
+
+        self.dx = self.optics.wavelength / np.abs(self.ulen * self.optics.du)
 
         if add_focus is not None:
             nZern, mZern = noll_to_zernike(4)
-            self.Optics.pathDifference += add_focus * zernike(
-                nZern, mZern, 2 * self.Optics.focalLength * self.Optics.urhoPolar, self.Optics.uthetaPolar
+            self.optics.pathDifference += add_focus * zernike(
+                nZern, mZern, 2 * self.optics.focalLength * self.optics.urhoPolar, self.optics.uthetaPolar
             )
 
         prefactor = (
-            self.Optics.pupilMask
-            / self.Optics.determinant
-            * np.exp(2 * np.pi / self.wavelength * 1j * self.Optics.pathDifference)
+            self.optics.pupil_mask
+            / self.optics.determinant
+            * np.exp(2 * np.pi / self.wavelength * 1j * self.optics.path_difference)
         )
 
         x_minus = (-1) ** np.array(range(self.ulen))  # used to translate ftt to image center
@@ -99,7 +132,7 @@ class PSFObject:
 
         self.prefactor = prefactor * ph
 
-        self.MTF_array = MTF(self.sX, self.sY)
+        # self.MTF_array = diffusion_green(self.sX, self.sY)
 
     def get_ulen(self, ps=20):
         """
@@ -125,10 +158,10 @@ class PSFObject:
         """
 
         # prefactor = \
-        # self.Optics.pupilMask*self.Optics.determinant*np.exp(2*np.pi/self.wavelength*1j\
-        # *self.Optics.pathDifference)
+        # self.optics.pupilMask*self.optics.determinant*np.exp(2*np.pi/self.wavelength*1j\
+        # *self.optics.pathDifference)
 
-        # x_minus = (-1)**np.array(range(self.Optics.ulen))#used to translate ftt to image center
+        # x_minus = (-1)**np.array(range(self.optics.ulen))#used to translate ftt to image center
         # ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
         # prefactor *= ph
         # start_time = time.time()
@@ -189,10 +222,10 @@ class PSFObject:
         # first_time = time.time()
         z_array = np.linspace(0, detector_thickness, zlen)
         # dZ = z_array[1] - z_array[0]
-        # ulen = self.Optics.ulen
+        # ulen = self.optics.ulen
 
-        uX = self.Optics.uArray
-        uY = self.Optics.vArray
+        uX = self.optics.u_array()
+        uY = self.optics.v_array()
         # uX, uY = np.meshgrid(uX, uY, indexing='ij')
         # uX, uY = np.meshgrid(self.uX, self.uY, indexing='ij')
 
@@ -253,8 +286,8 @@ class PSFObject:
 
         self.detector_image3 = fftconvolve(self.Intensity_integrated, self.MTF_array, mode="same")
 
-        # XAnalysis, YAnalysis = wfi.fromSCAtoAnalysis(self.Optics.scaNum, self.Optics.scaX,
-        # self.Optics.scaY) #Center of the PSF in Analysis coordinates
+        # XAnalysis, YAnalysis = wfi.fromSCAtoAnalysis(self.optics.scaNum, self.optics.scaX,
+        # self.optics.scaY) #Center of the PSF in Analysis coordinates
 
         # imageX = XAnalysis + self.sX[:,0] # Note that self.sX and self.sY are in microns whereas
         # Analysis coordinates and MTF are in mm
@@ -275,10 +308,10 @@ class PSFObject:
         # ps = self.ulen / pix
 
         # Compute the detector image by summing the contributions from all points in the postage stamp
-        # detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+        # detector_image = np.zeros((, 4088, self.optics.ulen, self.optics.ulen), dtype=np.float64)
 
         XAnalysis, YAnalysis = wfi.fromSCAtoAnalysis(
-            self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY
+            self.optics.scaNum, self.optics.scaX, self.optics.scaY
         )  # Center of the PSF in Analysis coordinates
 
         imageX = XAnalysis + self.sX[:, 0]  # Note that self.sX and self.sY and
@@ -312,10 +345,10 @@ class PSFObject:
 
         pix = 10
         # Compute the detector image by summing the contributions from all points in the postage stamp
-        # detector_image = np.zeros((, 4088, self.Optics.ulen, self.Optics.ulen), dtype=np.float64)
+        # detector_image = np.zeros((, 4088, self.optics.ulen, self.optics.ulen), dtype=np.float64)
 
         XAnalysis, YAnalysis = wfi.fromSCAtoAnalysis(
-            self.Optics.scaNum, self.Optics.scaX, self.Optics.scaY
+            self.optics.scaNum, self.optics.scaX, self.optics.scaY
         )  # Center of the PSF in Analysis coordinates
 
         imageX = (

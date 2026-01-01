@@ -15,9 +15,36 @@ This contains the following arrays:
   and fpa_to_angle_poly_coefficients[i,j,1]
   are the coefficients for the y-angle in terms of x^exponents[j,0] * y^exponents[j,1] at wavelength i.
 
+Also defines the scalars:
+
+- pix: float. Pixel size in microns.
+
+- nside: int. SCA side length in pixels.
+
+And the dictionaries:
+
+- cdpar: dict. Contains the keys:
+
+  - sigma_s: float. Charge diffusion length in microns.
+
+  - w: list of float. Weights of each Gaussian component.
+
+  - c: list of float. Scale of each Gaussian component in units of sigma_s.
+
 """
 
 import numpy as np
+
+# Detector parameters
+pix = 10.0  # pixel size in microns
+nside = 4088  # SCA side length
+
+# Charge diffusion parameters
+cdpar = {
+    "sigma_s": 3.279,  # sigma in microns
+    "w": [0.17519, 0.53146, 0.29335],  # weights of the Gaussians
+    "c": [0.4522, 0.8050, 1.4329],  # widths of the Gaussians in units of sigma_s
+}
 
 wavelength = np.array(
     [
