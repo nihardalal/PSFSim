@@ -153,6 +153,8 @@ class GeometricOptics:
         The pixel positions on the SCA (in mm, FPA coordinates relative to the SCA center).
     wavelength : float, optional
         The vacuum wavelength in microns.
+    use_filter : str
+        The filter as a 1-character string.
     ulen : int, optional
         The size of array for pupil sampling.
     ray_trace : bool, optional
@@ -170,7 +172,7 @@ class GeometricOptics:
         The pixel positions on the SCA (in mm, FPA coordinates relative to the SCA center).
     xan, yan : float
         The field angles in degrees.
-    usefilter : str
+    use_filter : str
         The filter as a 1-character string.
     ulen : int
         The FFT length (and pupil grid size).
@@ -202,7 +204,17 @@ class GeometricOptics:
 
     """
 
-    def __init__(self, scanum, scax, scay, wavelength=0.48, ulen=2048, ray_trace=True, pixelsampling=1.00):
+    def __init__(
+        self,
+        scanum,
+        scax,
+        scay,
+        wavelength=0.48,
+        use_filter="H",
+        ulen=2048,
+        ray_trace=True,
+        pixelsampling=1.00,
+    ):
         # sca position in mm
         # wavelength in micrometers
 
@@ -234,9 +246,11 @@ class GeometricOptics:
         self.pupilSampling = self.ulen
 
         # Get angular coordinates
-        self.xan, self.yan = from_fpa_to_angle(self.posOut, wavelength=self.wavelength, ray_trace=ray_trace)
+        self.xan, self.yan = from_fpa_to_angle(
+            self.posOut, wavelength=self.wavelength, ray_trace=ray_trace, use_filter=use_filter
+        )
 
-        self.usefilter = "H"
+        self.use_filter = use_filter
 
         # Compute Distortion Matrix and dterminant
         self.distortionMatrix = self.compute_distortion_matrix(method="raytrace")
@@ -330,7 +344,9 @@ class GeometricOptics:
             mat = np.sum(jacob * np.prod(np.power(self.posOut, self.newpolyorder), axis=3), axis=2)
             mat *= np.pi / 180
         elif method == "raytrace":
-            raytrace = RomanRayBundle(self.xan, self.yan, 7, "H", wl=self.wavelength * 0.001, hasE=True)
+            raytrace = RomanRayBundle(
+                self.xan, self.yan, 7, self.use_filter, wl=self.wavelength * 0.001, hasE=True
+            )
             mat = compute_jacobian(
                 raytrace.u,
                 dx=raytrace.xyi[0, 1, 0] - raytrace.xyi[0, 0, 0],
@@ -382,7 +398,7 @@ class GeometricOptics:
             self.xan,
             self.yan,
             self.pupilSampling,
-            self.usefilter,
+            self.use_filter,
             width=self.samplingwidth,
             wl=self.wavelength * 0.001,
             hasE=True,

@@ -5,23 +5,36 @@ from scipy.special import jacobi
 
 def zernike_radial(n, m, rho):
     """
-    Cross checked with https://desc-docs.readthedocs.io/en/v0.12.0/notebooks/zernike_eval.html
-    MAY HAVE A MINUS SIGN ERROR
-    Compute radial part of Zernike polynomial Rnm(rho)
-    Args:
-        n: azimuthal order (n >= 0)
-        m: radial order (abs m <= n, n-m even)
-        rho: radial coordinate array (0 <= rho <= 1)
-    Returns:
+    Radial Zernike functions.
+
+    Cross checked with https://desc-docs.readthedocs.io/en/v0.12.0/notebooks/zernike_eval.html.
+    Corrected minus sign in some previous versions.
+
+    Compute radial part of Zernike polynomial Rnm(rho).
+
+    Parameters
+    ----------
+    n : int
+       Radial order (n >= 0).
+    m: int
+       Azimuthal order (abs m <= n, n-m even).
+    rho : float or np.ndarray of float
+       Radial coordinate array (0 <= rho <= 1).
+
+    Returns
+    -------
+    float or np.ndarray of float
         Radial polynomial values
+
     """
+
     if (n - m) % 2 != 0:
         return np.zeros_like(rho)
 
     k = (n - m) // 2
     alpha = m
     beta = 0
-    poly = jacobi(k, alpha, beta)(2 * rho**2 - 1)
+    poly = jacobi(k, alpha, beta)(1.0 - 2.0 * rho**2)
     return (-1) ** k * rho**m * poly
 
 

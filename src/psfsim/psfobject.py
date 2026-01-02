@@ -40,6 +40,8 @@ class PSFObject:
         The length of the side of the square postage stamp in native pixels.
     ovsamp : int, optional
         The oversampling factor for the PSF (number of samples per native pixel).
+    use_filter : str, optional
+        The filter configuration to use (1-character code).
     npix_boundary : int, optional
         ?
     use_postage_stamp_size : int, optional
@@ -78,6 +80,7 @@ class PSFObject:
         wavelength=0.48,
         postage_stamp_size=31,
         ovsamp=10,
+        use_filter="H",
         npix_boundary=1,
         use_postage_stamp_size=None,
         ray_trace=True,
@@ -96,7 +99,14 @@ class PSFObject:
             self.ulen = use_postage_stamp_size
 
         self.optics = GeometricOptics(
-            scanum, scax, scay, wavelength, self.ulen, ray_trace=ray_trace, pixelsampling=10.0 / ovsamp
+            scanum,
+            scax,
+            scay,
+            wavelength=wavelength,
+            use_filter=use_filter,
+            ulen=self.ulen,
+            ray_trace=ray_trace,
+            pixelsampling=10.0 / ovsamp,
         )
         self.ux, self.uy = (
             self.optics.u_array(),
