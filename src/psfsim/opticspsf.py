@@ -389,7 +389,7 @@ class GeometricOptics:
         Returns
         -------
         np.ndarray of float
-            The pipil mask.
+            The pupil mask.
 
         """
 

@@ -8,7 +8,7 @@ from scipy.fft import ifft2
 from scipy.signal import fftconvolve
 
 from . import wfi_coordinate_transformations as wfi
-from .filter_detector_properties import FilterDetector, local_to_fpa_rotation
+from .filter_detector_properties import FilterDetector
 from .mtf_diffusion import MTF_image, MTF_SCA_postage_stamp
 from .opticspsf import GeometricOptics
 from .zernike import noll_to_zernike, zernike
@@ -192,43 +192,62 @@ class PSFObject:
         # ph = np.outer(x_minus, x_minus) #phase required to translate fft to center
         # prefactor *= ph
         # start_time = time.time()
-        current_time = time.time()
-        E_local = np.zeros(self.uX.shape + (3,), dtype=np.complex128)
+        # current_time = time.time()
+        # old version by Charuhas below
+        # E_local = np.zeros(self.ux.shape + (3,), dtype=np.complex128)
 
-        E_local[self.mask, 0] = A_TE * np.ones_like(self.uX[self.mask])
-        E_local[self.mask, 1] = -np.sqrt(1 - self.u[self.mask] ** 2) * A_TM
-        E_local[self.mask, 2] = self.u[self.mask] * A_TM
+        # E_local[self.mask, 0] = A_TE * np.ones_like(self.ux[self.mask])
+        # E_local[self.mask, 1] = -np.sqrt(1 - self.u[self.mask] ** 2) * A_TM
+        # E_local[self.mask, 2] = self.u[self.mask] * A_TM
 
-        local_to_FPA = local_to_fpa_rotation(self.uX, self.uY, sgn=1)
+        # local_to_FPA = local_to_fpa_rotation(self.ux, self.uy, sgn=1)
 
-        E_FPA_x = np.zeros_like(self.uX, dtype=np.complex128)
-        E_FPA_y = np.zeros_like(self.uX, dtype=np.complex128)
-        E_FPA_z = np.zeros_like(self.uX, dtype=np.complex128)
+        # E_FPA_x = np.zeros_like(self.ux, dtype=np.complex128)
+        # E_FPA_y = np.zeros_like(self.ux, dtype=np.complex128)
+        # E_FPA_z = np.zeros_like(self.ux, dtype=np.complex128)
 
-        E_FPA_x[self.mask] = np.sum(local_to_FPA[self.mask, 0, :] * E_local[self.mask, :], axis=-1)
-        E_FPA_y[self.mask] = np.sum(local_to_FPA[self.mask, 1, :] * E_local[self.mask, :], axis=-1)
-        E_FPA_z[self.mask] = np.sum(local_to_FPA[self.mask, 2, :] * E_local[self.mask, :], axis=-1)
-        end_time = time.time()
-        print("Time taken to get E field in FPA coordinates = ", end_time - current_time, "\n")
-        current_time = time.time()
-        E_FPA_x *= self.prefactor
-        E_FPA_y *= self.prefactor
-        E_FPA_z *= self.prefactor
+        # E_FPA_x[self.mask] = np.sum(local_to_FPA[self.mask, 0, :] * E_local[self.mask, :], axis=-1)
+        # E_FPA_y[self.mask] = np.sum(local_to_FPA[self.mask, 1, :] * E_local[self.mask, :], axis=-1)
+        # E_FPA_z[self.mask] = np.sum(local_to_FPA[self.mask, 2, :] * E_local[self.mask, :], axis=-1)
+        # end_time = time.time()
+        # print("Time taken to get E field in FPA coordinates = ", end_time - current_time, "\n")
+        # current_time = time.time()
+        # E_FPA_x *= self.prefactor
+        # E_FPA_y *= self.prefactor
+        # E_FPA_z *= self.prefactor
 
-        Ex = ifft2(E_FPA_x)
-        Ey = ifft2(E_FPA_y)
-        Ez = ifft2(E_FPA_z)
+        # Ex = ifft2(E_FPA_x)
+        # Ey = ifft2(E_FPA_y)
+        # Ez = ifft2(E_FPA_z)
 
         # Ex = np.fft.ifft2(E_FPA_x, axes=(
-        print("Time taken to do ifft = ", time.time() - current_time, "\n")
-        current_time = time.time()
+        # print("Time taken to do ifft = ", time.time() - current_time, "\n")
+        # current_time = time.time()
 
-        self.Optical_PSF = abs(Ex) ** 2 + abs(Ey) ** 2 + abs(Ez) ** 2
-        print(
-            "Time taken to compute Optical PSF by squaring the E field = ", time.time() - current_time, "\n"
-        )
+        # self.Optical_PSF = abs(Ex) ** 2 + abs(Ey) ** 2 + abs(Ez) ** 2
+        # print("Time taken to compute Optical PSF by squaring the E field = ",
+        # time.time()-current_time, "\n")
         # self.Optical_PSF /= np.sum(self.Optical_PSF*self.dsX*self.dsY) # Normalise to total flux of 1
         # self.Optical_PSF *= np.sum(self.dsX*self.dsY)
+
+        # New changes by Nihar here, please check before removing this comment
+        # Goal is to get polarization consistent with raytrace
+
+        E_FPA_x_polarized = self.optics.rb.E[:, :, 0, 1:4]
+        E_FPA_y_polarized = self.optics.rb.E[:, :, 1, 1:4]
+
+        E_FPA_x_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_x_polarized
+        E_FPA_y_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_y_polarized
+
+        E_x_polarized = ifft2(E_FPA_x_polarized, axes=(0, 1))  # use first two axes for fft
+        E_y_polarized = ifft2(E_FPA_y_polarized, axes=(0, 1))
+        self.x_polarized_psf = np.sum(
+            np.abs(E_x_polarized) ** 2, axis=-1
+        )  # consider switching to einsum for speed?
+        self.y_polarized_psf = np.sum(np.abs(E_y_polarized) ** 2, axis=-1)
+        self.Optical_PSF = 0.5 * (self.x_polarized_psf + self.y_polarized_psf)
+
+        return
 
     def get_E_in_detector(
         self, filter=interference_filter, detector_thickness=2, zlen=20, nworkers=8, A_TE=1.0e10, A_TM=1.0e10
