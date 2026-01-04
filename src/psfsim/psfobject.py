@@ -13,6 +13,9 @@ from .mtf_diffusion import MTF_image, MTF_SCA_postage_stamp
 from .opticspsf import GeometricOptics
 from .zernike import noll_to_zernike, zernike
 
+c = 3.0e8  # speed of light in m/s
+epsilon_0 = 8.8541878188e-12  # permittivity of free space in F/m
+
 
 def parallel_MTF_image(args):
     """Wrapper for MTF_image"""
@@ -165,7 +168,7 @@ class PSFObject:
     #        ulen = 2 * (smax - smin) / self.wavelength
     #        return ulen
 
-    def get_optical_psf(self, normalise=True, A_TE=1.0e10, A_TM=1.0e10):
+    def get_optical_psf(self, normalise=True):
         """
         Gets the optical PSF (no detector effects).
 
@@ -179,9 +182,6 @@ class PSFObject:
         ----------
         normalise : bool, optional
             Currently has no effect.
-        A_TE, A_TM : complex, optional
-            Input EM wave amplitudes.
-
         """
 
         # prefactor = \
@@ -239,12 +239,38 @@ class PSFObject:
         E_FPA_x_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_x_polarized
         E_FPA_y_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_y_polarized
 
+        r = np.array(
+            [self.ux, self.uy, np.sqrt(1 - self.u**2)]
+        )  # define a vector along propagation direction
+        r = r.reshape(self.ux.shape[0], self.ux.shape[1], 3)  # reshape to be compatible with E
+        cB_FPA_x_polarized = np.cross(r, E_FPA_x_polarized)
+        cB_FPA_y_polarized = np.cross(r, E_FPA_y_polarized)
+
+        # Need to add normalization
         E_x_polarized = ifft2(E_FPA_x_polarized, axes=(0, 1))  # use first two axes for fft
         E_y_polarized = ifft2(E_FPA_y_polarized, axes=(0, 1))
-        self.x_polarized_psf = np.sum(
-            np.abs(E_x_polarized) ** 2, axis=-1
-        )  # consider switching to einsum for speed?
-        self.y_polarized_psf = np.sum(np.abs(E_y_polarized) ** 2, axis=-1)
+        cB_x_polarized = ifft2(cB_FPA_x_polarized, axes=(0, 1))
+        cB_y_polarized = ifft2(cB_FPA_y_polarized, axes=(0, 1))
+
+        # Unsure about the abs here, but leaving it in for now...
+        self.x_polarized_psf = np.abs(
+            0.5
+            * epsilon_0
+            * c
+            * (
+                E_x_polarized[:, :, 0] * cB_x_polarized[:, :, 1]
+                - E_x_polarized[:, :, 1] * cB_x_polarized[:, :, 0]
+            )
+        )
+        self.y_polarized_psf = np.abs(
+            0.5
+            * epsilon_0
+            * c
+            * (
+                E_y_polarized[:, :, 0] * cB_y_polarized[:, :, 1]
+                - E_y_polarized[:, :, 1] * cB_y_polarized[:, :, 0]
+            )
+        )
         self.Optical_PSF = 0.5 * (self.x_polarized_psf + self.y_polarized_psf)
 
         return
