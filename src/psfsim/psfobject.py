@@ -240,7 +240,7 @@ class PSFObject:
         E_FPA_y_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_y_polarized
 
         r = np.array(
-            [self.ux, self.uy, np.sqrt(1 - self.u**2)]
+            [self.ux, self.uy, np.sqrt(np.clip(1 - self.u**2, 0.0, None))]
         )  # define a vector along propagation direction
         r = r.reshape(self.ux.shape[0], self.ux.shape[1], 3)  # reshape to be compatible with E
         cB_FPA_x_polarized = np.cross(r, E_FPA_x_polarized)
@@ -253,22 +253,22 @@ class PSFObject:
         cB_y_polarized = ifft2(cB_FPA_y_polarized, axes=(0, 1))
 
         # Unsure about the abs here, but leaving it in for now...
-        self.x_polarized_psf = np.abs(
+        self.x_polarized_psf = np.real(
             0.5
             * epsilon_0
             * c
             * (
-                E_x_polarized[:, :, 0] * cB_x_polarized[:, :, 1]
-                - E_x_polarized[:, :, 1] * cB_x_polarized[:, :, 0]
+                np.conjugate(E_x_polarized[:, :, 0]) * cB_y_polarized[:, :, 1]
+                - np.conjugate(E_y_polarized[:, :, 1]) * cB_x_polarized[:, :, 0]
             )
         )
-        self.y_polarized_psf = np.abs(
+        self.y_polarized_psf = np.real(
             0.5
             * epsilon_0
             * c
             * (
-                E_y_polarized[:, :, 0] * cB_y_polarized[:, :, 1]
-                - E_y_polarized[:, :, 1] * cB_y_polarized[:, :, 0]
+                np.conjugate(E_x_polarized[:, :, 0]) * cB_y_polarized[:, :, 1]
+                - np.conjugate(E_y_polarized[:, :, 1]) * cB_x_polarized[:, :, 0]
             )
         )
         self.Optical_PSF = 0.5 * (self.x_polarized_psf + self.y_polarized_psf)
