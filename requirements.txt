@@ -1,0 +1,6 @@
+numpy
+numba
+scipy
+astropy
+galsim
+pandas
