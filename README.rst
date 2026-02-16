@@ -1,4 +1,5 @@
-[![codecov](https://codecov.io/gh/nihardalal/PSFSim/graph/badge.svg?token=O76KO3TQA2)](https://codecov.io/gh/nihardalal/PSFSim)
+.. image:: https://codecov.io/gh/nihardalal/PSFSim/graph/badge.svg?token=O76KO3TQA2 
+ :target: https://codecov.io/gh/nihardalal/PSFSim
 
 PSFSim
 ######
