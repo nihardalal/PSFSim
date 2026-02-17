@@ -177,7 +177,7 @@ class PSFObject:
         SCA. This function is added for testing purposes and to assess the impact of the interference
         filter on the PSF and charge diffusion through the HgCdTe layer. Note that the optical PSF
         includes the effects of diffraction and pupil mask and is normalised to total flux of 1. The
-        optical psf is saved to self.Optical_PSF.
+        optical psf is saved to ``self.Optical_PSF``.
 
         Parameters
         ----------
