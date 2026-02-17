@@ -295,7 +295,7 @@ class GeometricOptics:
 
     def v_array(self):
         """
-        Gets the 2D array of u.
+        Gets the 2D array of v.
         """
 
         x, y = np.meshgrid(np.linspace(0, self.ulen - 1, self.ulen), np.linspace(0, self.ulen - 1, self.ulen))
@@ -383,7 +383,7 @@ class GeometricOptics:
         Parameters
         ----------
         use_ray_trace : bool, optional
-            Ray traced pupil mask? (Only turn off for testing, if stpsf-data is
+            Ray traced pupil mask (Only turn off for testing, if stpsf-data is
             available.)
 
         Returns
@@ -419,7 +419,7 @@ class GeometricOptics:
 
     def path_diff(self):
         """
-        Path difference map.
+        Path difference map computed from Zernike coefficients from Cycle 9 data.
 
         Returns
         -------
