@@ -4,7 +4,9 @@
 PSFSim
 ######
 
-Repository for simulations for testing point spread function measurements for the Roman Space Telescope. In development. 
+Repository for simulations for testing point spread function measurements for the Roman Space Telescope. In development. Preliminary documentation can be found `here`_ via ReadTheDocs.
+
+.. _here: https://psfsim.readthedocs.io/en/latest/index.html
 
 Added features include position dependent pupil mask, detector effects, Zernike path differences, and more!
 
