@@ -234,45 +234,45 @@ class PSFObject:
         # New changes by Nihar here, please check before removing this comment
         # Goal is to get polarization consistent with raytrace
 
-        E_FPA_x_polarized = self.optics.rb.E[:, :, 0, 1:4]
-        E_FPA_y_polarized = self.optics.rb.E[:, :, 1, 1:4]
+        E_FPA_h_polarized = self.optics.rb.E[:, :, 0, 1:4]  # horizontal polarization
+        E_FPA_v_polarized = self.optics.rb.E[:, :, 1, 1:4]  # vertical polarization
 
-        E_FPA_x_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_x_polarized
-        E_FPA_y_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_y_polarized
+        E_FPA_h_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_h_polarized
+        E_FPA_v_polarized = self.prefactor[:, :, np.newaxis] * E_FPA_v_polarized
 
         r = np.array(
             [self.ux, self.uy, np.sqrt(np.clip(1 - self.u**2, 0.0, None))]
         )  # define a vector along propagation direction
         r = r.reshape(self.ux.shape[0], self.ux.shape[1], 3)  # reshape to be compatible with E
-        cB_FPA_x_polarized = np.cross(r, E_FPA_x_polarized)
-        cB_FPA_y_polarized = np.cross(r, E_FPA_y_polarized)
+        cB_FPA_h_polarized = np.cross(r, E_FPA_h_polarized)
+        cB_FPA_v_polarized = np.cross(r, E_FPA_v_polarized)
 
         # Need to add normalization
-        E_x_polarized = ifft2(E_FPA_x_polarized, axes=(0, 1))  # use first two axes for fft
-        E_y_polarized = ifft2(E_FPA_y_polarized, axes=(0, 1))
-        cB_x_polarized = ifft2(cB_FPA_x_polarized, axes=(0, 1))
-        cB_y_polarized = ifft2(cB_FPA_y_polarized, axes=(0, 1))
+        E_h_polarized = ifft2(E_FPA_h_polarized, axes=(0, 1))  # use first two axes for fft
+        E_v_polarized = ifft2(E_FPA_v_polarized, axes=(0, 1))
+        cB_h_polarized = ifft2(cB_FPA_h_polarized, axes=(0, 1))
+        cB_v_polarized = ifft2(cB_FPA_v_polarized, axes=(0, 1))
 
         # Unsure about the abs here, but leaving it in for now...
-        self.x_polarized_psf = np.real(
+        self.h_polarized_psf = np.real(
             0.5
             * epsilon_0
             * c
             * (
-                np.conjugate(E_x_polarized[:, :, 0]) * cB_y_polarized[:, :, 1]
-                - np.conjugate(E_y_polarized[:, :, 1]) * cB_x_polarized[:, :, 0]
+                np.conjugate(E_h_polarized[:, :, 0]) * cB_h_polarized[:, :, 1]
+                - np.conjugate(E_h_polarized[:, :, 1]) * cB_h_polarized[:, :, 0]
             )
         )
-        self.y_polarized_psf = np.real(
+        self.v_polarized_psf = np.real(
             0.5
             * epsilon_0
             * c
             * (
-                np.conjugate(E_x_polarized[:, :, 0]) * cB_y_polarized[:, :, 1]
-                - np.conjugate(E_y_polarized[:, :, 1]) * cB_x_polarized[:, :, 0]
+                np.conjugate(E_v_polarized[:, :, 0]) * cB_v_polarized[:, :, 1]
+                - np.conjugate(E_v_polarized[:, :, 1]) * cB_v_polarized[:, :, 0]
             )
         )
-        self.Optical_PSF = 0.5 * (self.x_polarized_psf + self.y_polarized_psf)
+        self.Optical_PSF = 0.5 * (self.h_polarized_psf + self.v_polarized_psf)
 
         return
 
