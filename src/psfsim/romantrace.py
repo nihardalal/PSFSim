@@ -2,6 +2,32 @@ import numpy as np
 import scipy
 from astropy.io import fits
 
+
+def _lanczos_weight(dx, dy, a=3):
+    """
+    Lanczos function.
+
+    Parameters
+    ----------
+    dx : float or np.ndarray
+        The input x value(s).
+    dy: float or np.ndarray,
+        The input y value(s). Must be the same shape as `dx`.
+    a : int, optional
+        The Lanczos parameter (default is 3).
+
+    Returns
+    -------
+    float or np.ndarray
+        The Lanczos function evaluated on the `dx` by `dy` grid.
+
+    """
+
+    r_x = np.where(np.abs(dx) < a, np.sinc(dx) * np.sinc(dx / a), 0.0)
+    r_y = np.where(np.abs(dy) < a, np.sinc(dy) * np.sinc(dy / a), 0.0)
+    return r_x * r_y
+
+
 ### begin material data ###
 
 
@@ -1174,7 +1200,15 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
         ovsamp=ovsamp,
     )
     print(n, np.shape(RB_hires.open))
-    RB.open[bdycells[0], bdycells[1]] = np.mean(RB_hires.open.astype(np.float64), axis=1)
+    sub_offsets = np.linspace(-0.5 + 0.5 / ovsamp, 0.5 - 0.5 / ovsamp, ovsamp)
+    sx, sy = np.meshgrid(sub_offsets, sub_offsets)
+    sx = sx.ravel()
+    sy = sy.ravel()
+    lanczos_weights = _lanczos_weight(sx, sy)
+    lanczos_weights /= np.sum(lanczos_weights)  # Normalize to sum to 1
+    RB.open[bdycells[0], bdycells[1]] = np.sum(
+        RB_hires.open.astype(np.float64) * lanczos_weights[np.newaxis, :], axis=1
+    )
 
     # force to zeros where closed
     for i in range(2):
