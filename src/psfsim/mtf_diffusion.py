@@ -47,7 +47,7 @@ def diffusion_green(xd, yd, x2=0.0, y2=0.0):
 
 def diffusion_prob(xd, yd, width=10.0, x2=0.0, y2=0.0):
     """
-    Charge diffusion probability as a function of Analysis coordinates in mm.
+    Charge diffusion probability as a function of Analysis coordinates in microns.
 
     This is the integral of the Green's function over a square of width `width` centered on (0, 0).
 
