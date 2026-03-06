@@ -1202,6 +1202,58 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
     print(n, np.shape(RB_hires.open))
     sub_offsets = np.linspace(-0.5 + 0.5 / ovsamp, 0.5 - 0.5 / ovsamp, ovsamp)
     sx, sy = np.meshgrid(sub_offsets, sub_offsets)
+    a_lanczos = 3
+    m_lanczos = 2 * a_lanczos + 1
+    # Trying updated Lanczos scheme to weight more pixels without simulating more at hires
+    dx_arr = np.arange(-a_lanczos, a_lanczos + 1)
+    dy_arr = np.arange(-a_lanczos, a_lanczos + 1)
+    W_sub = np.zeros((m_lanczos, m_lanczos, ovsamp, ovsamp))
+
+    for i, dx in enumerate(dx_arr):
+        for j, dy in enumerate(dy_arr):
+            w = _lanczos_weight((dx + sx).ravel(), (dy + sy).ravel())
+            W_sub[i, j] = w.reshape(ovsamp, ovsamp)
+
+    # Normalize weights so that full filter sums to 1
+    W_sub /= np.sum(W_sub)
+
+    # Calculate low res weights for non sub-sampled pixels
+    W_low = np.sum(W_sub, axis=(2, 3))
+
+    pad_w = 3
+    RB_open_padded = np.pad(RB.open, pad_w, mode="edge")
+
+    # Map from x,y in spatial coordinates to index in bdycells
+    hires_index_map = np.full(RB.open.shape, -1, dtype=int)
+    hires_index_map[bdycells[0], bdycells[1]] = np.arange(len(bdycells[0]))
+    hires_map_padded = np.pad(hires_index_map, pad_w, constant_values=-1)
+
+    num_bdy = len(bdycells[0])
+    hires_open_reshaped = RB_hires.open.astype(np.float64).reshape(num_bdy, ovsamp, ovsamp)
+
+    new_values = np.zeros(num_bdy, dtype=np.float64)
+    bx = bdycells[0] + pad_w
+    by = bdycells[1] + pad_w
+
+    for i, dx in enumerate(dx_arr):
+        for j, dy in enumerate(dy_arr):
+            nx = bx + dx
+            ny = by + dy
+
+            k_prime = hires_map_padded[nx, ny]
+            is_hires = k_prime >= 0
+
+            contrib = np.zeros(num_bdy, dtype=np.float64)
+            contrib[~is_hires] = RB_open_padded[nx[~is_hires], ny[~is_hires]] * W_low[i, j]
+
+            if np.any(is_hires):
+                H = hires_open_reshaped[k_prime[is_hires]]
+                contrib[is_hires] = np.sum(H * W_sub[i, j], axis=(1, 2))
+
+            new_values += contrib
+
+    RB.open[bdycells[0], bdycells[1]] = new_values
+    """
     sx = sx.ravel()
     sy = sy.ravel()
     lanczos_weights = _lanczos_weight(sx, sy)
@@ -1209,6 +1261,7 @@ def RomanRayBundle(xan, yan, N, usefilter, wl=None, hasE=False, width=2500.0, ja
     RB.open[bdycells[0], bdycells[1]] = np.sum(
         RB_hires.open.astype(np.float64) * lanczos_weights[np.newaxis, :], axis=1
     )
+    """
 
     # force to zeros where closed
     for i in range(2):
