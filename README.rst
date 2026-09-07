@@ -13,6 +13,8 @@ Repository for simulations for testing point spread function measurements for th
 
 Added features include position dependent pupil mask, detector effects, Zernike path differences, and more!
 
+Instructions for making a PSF model using ``PSFSim`` are `here <docs/usage.rst>`_.
+
 Most code lives in ``PSFObject.py``, but it may also be useful to look at ``opticsPSF.py`` and ``filter_detector_properties.py``.
 
 Additional information:
