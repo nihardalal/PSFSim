@@ -326,9 +326,9 @@ class RayBundle:
         Oversamples cells in the entrance pupil by this factor; only used if `hires` is given.
     idealgeom : bool, optional
         Forces the design model rather than with the best-fit offsets.
-    save_trace_history : bool, optional
-        Adds a trace_history attribute to the ray bundle so it can track its locations along
-        its path.
+    save_bundle_history : bool, optional
+        Adds location_history and momentum_history attributes to the ray bundle so it can track
+        its locations and momenta along its path.
 
     Attributes
     ----------
@@ -359,8 +359,10 @@ class RayBundle:
         The electric field (optional, 4D: 2D for array, 1D for input pol, 1D for output pol).
         Shape is (`N1`, `N2`, 2, 2).
         None if not used.
-    trace_history : list
+    location_history : list
         A list of ray positions (from self.x) along the ray bundle's total path.
+    momentum_history : list
+        A list of ray momenta (from self.p) along the ray bundle's total path.
 
     Methods
     -------
@@ -449,7 +451,7 @@ class RayBundle:
         hires=None,
         ovsamp=6,
         idealgeom=True,
-        save_trace_history=False,
+        save_bundle_history=False,
     ):
         if jacobian is None:
             jacobian = np.array([[1, 0], [0, 1]])
@@ -519,9 +521,10 @@ class RayBundle:
         self.x = RayBundle.MiV(field_bias, self.x)
         self.p = RayBundle.MiV(field_bias, self.p)
 
-        self.save_trace_history = save_trace_history
-        if save_trace_history:
-            self.trace_history = [self.x[:,:,1:4].copy()]
+        self.save_bundle_history = save_bundle_history
+        if save_bundle_history:
+            self.location_history = [self.x[:,:,1:4].copy()]
+            self.momentum_history = [self.p[:,:,1:4].copy()]
 
         # if requested, build the E-field
         if hasE:
